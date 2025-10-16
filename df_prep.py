@@ -72,7 +72,7 @@ def convert_png_to_jpg(png_path, jpg_path):
     path = Path(jpg_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    
+
     im = Image.open(png_path)
     rgb_im = im.convert('RGB')
     rgb_im.save(jpg_path)
@@ -103,7 +103,3 @@ def handle_dataset_cities(df, city_csv_path, cities_image_path) -> pd.DataFrame:
 if __name__ == "__main__":
     df = load_data(STREETVIEW_PATH, CITIES_PATH, recompute=True)
     print(f"Totalt antal bilder: {len(df)}")
-    with open('out.txt', 'w') as f:
-        pd.set_option('display.max_rows', None)
-        pd.set_option('display.max_columns', None)
-        print(df, file=f)
