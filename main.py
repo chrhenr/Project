@@ -1,28 +1,42 @@
 
 from matplotlib.colors import Normalize
 import pandas as pd
+import numpy as np
+import s2sphere
+import torch
+
+
 from pathlib import Path
 from s2sphere import CellId, LatLng, Cell
 import matplotlib.pyplot as plt
+from torch.utils.data import Dataset, DataLoader
 
 from torchvision.transforms import Normalize, ToTensor, Compose, Resize
 
 
-from geoGuesserDataLoader import make_dataLoader
+from geoGuesserDataLoader import GeoGuesserDataset
 from df_prep import load_data
 
 
 CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 
-df = load_data(STREETVIEW_PATH, CITIES_PATH, recompute=True)
-print(f"Totalt antal bilder: {df.index.size}")
+df = load_data(STREETVIEW_PATH, CITIES_PATH, recompute=False)
+# print(f"Totalt antal bilder: {df.index.size}")
 cells = df["cell_id"].unique().tolist()
 
-print(f"unika celler: {len(cells)}")
+# print(f"unika celler: {len(cells)}")
 
-def one_hot_encode(df):
-    return pd.get_dummies(df['cell_id'], prefix='cell')
+def encode_cells(df):
+    """Encodes cell_id column into integer class labels."""
+    unique_cells = df['cell_id'].unique()
+    cell_to_idx = {cell: idx for idx, cell in enumerate(unique_cells)}
+    idx_to_cell = {idx: cell for cell, idx in cell_to_idx.items()}
+
+    # Add encoded labels as a new column
+    df['cell_label'] = df['cell_id'].map(cell_to_idx)
+    return df, cell_to_idx, idx_to_cell
+
 
 transform = Compose([
     Resize((224, 224)),
@@ -31,15 +45,29 @@ transform = Compose([
 ])
 
     
-def main():
+def main(df=df, cells=cells, transform=transform):
     # plot_s2_grid(cells)
-    one_hot = one_hot_encode(df)
-    geo_dataloader = make_dataLoader(df, transform=transform)
+
+    df, cell_to_idx, idx_to_cell = encode_cells(df)
+    print(f"Total unique S2 cells: {len(cell_to_idx)}")
+    print(df[['cell_id', 'cell_label']].head())
+
+    # unique, y_int = np.unique(df['cell_id'], return_inverse=True)
+    # df['cell_id'] = y_int
+
+    dataset = GeoGuesserDataset(df, transform=transform)
+    geo_dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
+
+    print(df.head())
+
     plot_s2_grid(cells)
     for images, labels in geo_dataloader:
         print(images.shape)
         print(labels.shape)
         break
+
+
+
 
 
 
@@ -79,4 +107,4 @@ def plot_s2_grid(cells):
     plt.show()
 
 if __name__ == "__main__":
-    main()
+    main(df=df, cells=cells, transform=transform)
