@@ -15,7 +15,7 @@ class GeoGuesserDataset(Dataset):
     def __getitem__(self, idx):
         path_to_image = self.dataframe.iloc[idx]['path']
 
-        img = Image.open(path_to_image)
+        img = Image.open(path_to_image).convert("RGB")
         if self.transform:
             img = self.transform(img)
 

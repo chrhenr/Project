@@ -20,21 +20,17 @@ from df_prep import load_data
 
 CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
+MAPPED_PATH = "./data_mapped"
 
-df = load_data(STREETVIEW_PATH, CITIES_PATH, recompute=False)
-# print(f"Totalt antal bilder: {df.index.size}")
-cells = df["cell_id"].unique().tolist()
-
-# print(f"unika celler: {len(cells)}")
 
 def encode_cells(df):
     """Encodes cell_id column into integer class labels."""
-    unique_cells = df['cell_id'].unique()
+    unique_cells = df['cell_id_6'].unique()
     cell_to_idx = {cell: idx for idx, cell in enumerate(unique_cells)}
     idx_to_cell = {idx: cell for cell, idx in cell_to_idx.items()}
 
     # Add encoded labels as a new column
-    df['cell_label'] = df['cell_id'].map(cell_to_idx)
+    df['cell_label'] = df['cell_id_6'].map(cell_to_idx)
     return df, cell_to_idx, idx_to_cell
 
 
@@ -45,12 +41,12 @@ transform = Compose([
 ])
 
     
-def main(df=df, cells=cells, transform=transform):
+def main(df, cells, transform=transform):
     # plot_s2_grid(cells)
 
     df, cell_to_idx, idx_to_cell = encode_cells(df)
     print(f"Total unique S2 cells: {len(cell_to_idx)}")
-    print(df[['cell_id', 'cell_label']].head())
+    print(df[['cell_id_6', 'cell_label']].head())
 
     # unique, y_int = np.unique(df['cell_id'], return_inverse=True)
     # df['cell_id'] = y_int
@@ -60,18 +56,12 @@ def main(df=df, cells=cells, transform=transform):
 
     print(df.head())
 
-    plot_s2_grid(cells)
     for images, labels in geo_dataloader:
-        print(images.shape)
-        print(labels.shape)
+        print(f"images: {images.shape}")
+        print(f"labels: {labels.shape}")
         break
 
-
-
-
-
-
-
+    plot_s2_grid(cells)
 
 #Plotting functions
 def cell_boundary(cell_id):
@@ -107,4 +97,6 @@ def plot_s2_grid(cells):
     plt.show()
 
 if __name__ == "__main__":
-    main(df=df, cells=cells, transform=transform)
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False)
+    cells = df["cell_id_6"].unique().tolist()   
+    main(df, cells=cells, transform=transform)
