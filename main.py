@@ -38,20 +38,13 @@ transform = Compose([
 
 
 def main():
-    SEED = 69
-    np.random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED); torch.cuda.manual_seed_all(SEED)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    if device.type == "cuda":
-        print(torch.cuda.get_device_name(0))
-        torch.backends.cudnn.benchmark = True
-
-    # plot_s2_grid(cells)
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False)  
+    # Läs in data
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=True, vm=False)  
 
     df_img_and_labels = df[['path', 'cell_id']]
     df_img_and_labels, cell_to_idx, idx_to_cell = encode_cells(df_img_and_labels)
+    print(f"Datamängd efter encoding: {len(df_img_and_labels)} bilder.")
 
     #get a few samples for testing
     array = [randint(1, len(df_img_and_labels)) for i in range(10)]
@@ -61,36 +54,39 @@ def main():
         df_test.loc[i] = df_img_and_labels.iloc[array[i]]
         df_img_and_labels = df_img_and_labels.drop(i)
 
+    print(f"Datamängd efter sampling: {len(df_img_and_labels)} bilder.")
 
-    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
+
+    # Skapa dataloaders
+    geo_dataloader_train, geo_dataloader_val = small_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
 
-    train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+    # Train the model
+    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
 
+
+    # Load the trained model
     model = GeoNetworkBaseline(224)
     model.load_state_dict(torch.load(save_path))
     model.eval()
 
+
+    # Träna en transfer learning modell
     # tl_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
     # head = Head()
-
     # tl_model.classifier = head
 
+
     plotter = MapPlotter(df)
-    # for feature_layers in model.features:
-    #     for param in feature_layers.parameters():
-    #         param.requires_grad = False
-
-    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
-
 
     # Predict and plot on test dataset
     test_and_plot(model, geo_dataloader_test, plotter, array)
 
 
 def test_and_plot(model, dataloader, plotter, array):
+    """Test the model on the test dataset and plot predictions."""
     model.eval()
     with torch.no_grad():
         for index, (image, labels) in enumerate(dataloader):
@@ -100,6 +96,7 @@ def test_and_plot(model, dataloader, plotter, array):
 
 
 def train_model(train, val, save_path):
+    """Train the GeoNetwork model."""
     # Initialize model, optimizer, and loss function
     first_model = GeoNetworkBaseline(224)
     optimizer = torch.optim.Adam(first_model.parameters(), lr=1e-4)
@@ -115,6 +112,7 @@ def train_model(train, val, save_path):
 
 
 def small_dataset(df_img_labels):
+    """Create a small dataset for quick testing."""
     smaller_df = df_img_labels.sample(n=2000, random_state=42)
 
     df_train, df_val = train_test_split(smaller_df, test_size=0.3)
@@ -128,7 +126,7 @@ def small_dataset(df_img_labels):
     return geo_dataloader_train, geo_dataloader_val
 
 def test_dataset(df_img_labels):
-
+    """Create a test dataset."""
     dataset_test = GeoGuesserDataset(df_img_labels, transform=transform)
     geo_dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=4)
 
@@ -136,6 +134,7 @@ def test_dataset(df_img_labels):
 
 
 def full_dataset(df_img_labels):
+    """Create full dataset dataloaders."""
     df_train, df_val = train_test_split(df_img_labels, test_size=0.2)
 
     dataset_train = GeoGuesserDataset(df_train, transform=transform)

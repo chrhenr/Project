@@ -1,9 +1,11 @@
 from fileinput import filename
 from itertools import takewhile
-import os
 import pandas as pd
 from pathlib import Path
 import json
+
+import os
+import zipfile
 
 # from torch.utils.data import Dataset, DataLoader
 from PIL import Image
@@ -16,9 +18,16 @@ STREETVIEW_PATH = "./streetview"
 STREETVIEW_JPG_PATH = "./streetview_jpg"
 MAPPED_PATH = "./data_mapped"
 
-def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.DataFrame:
+def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bool) -> pd.DataFrame:
+    if vm:
+        if not os.path.exists(STREETVIEW_JPG_PATH):
+            os.makedirs(STREETVIEW_JPG_PATH)
+        with zipfile.ZipFile("streetview_jpg.zip", 'r') as zip_ref:
+            zip_ref.extractall(STREETVIEW_JPG_PATH)
     if recompute == False:
         return pd.read_csv("data.csv")
+
+            
     # Filvägar
     streetview_coords_path = streetview_path + "/coords.csv"
 
@@ -32,7 +41,11 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.
     img_files = list(mapped_path.glob("*.png"))
 
 
-    # Läs in data från data_mapped
+    img_counter = 0
+
+
+
+    #### Läs in data från data_mapped och flytta de till streetview_jpg ####
     mapped_dict = {"lat": [], "lon": [], "path": []}
     for i in range(len(json_files)):
         assert json_files[i].stem == img_files[i].stem, f"Filerna {json_files[i]} och {img_files[i]} matchar inte!"
@@ -45,22 +58,32 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.
         mapped_dict["path"].append(str(f"{MAPPED_PATH}/{img_files[i].stem}.png"))
 
     df_mapped = pd.DataFrame(mapped_dict)
+    df_mapped = df_mapped.sample(10000, random_state=1) 
+
+    for p in df_mapped.index:
+        jpg_path = convert_png_to_jpg(str(df_mapped.at[p, 'path']), f"{STREETVIEW_JPG_PATH}/{str(img_counter)}.jpg")
+        df_mapped.at[p, "path"] = jpg_path
+        img_counter += 1
 
 
 
-    # Läs in data fron streetview
+    #### Läs in data från streetview och flytta de till streetview_jpg ####
     df1 = pd.read_csv(streetview_coords_path, names=["lat", "lon"])
 
     for p in df1.index:
-        jpg_path = convert_png_to_jpg(f"{streetview_path}/{str(p)}.png", f"{STREETVIEW_JPG_PATH}/{str(p)}.jpg")
+        jpg_path = convert_png_to_jpg(f"{streetview_path}/{str(p)}.png", f"{STREETVIEW_JPG_PATH}/{str(img_counter)}.jpg")
         df1.at[p, "path"] = jpg_path
+        img_counter += 1
 
 
-    df_cities = [df_mapped, df1]
+    df_cities = []
 
     print(f"Totalt antal bilder i Street View: {len(df1)}")
 
-    # Läs in data från cities
+
+
+
+    #### Läs in data från cities och flytta de till streetview_jpg ####
     for p in csv_files:
         try:
             df_city = pd.read_csv(p, usecols=["lat", "lon", "panoid"])
@@ -72,12 +95,27 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.
         except Exception as e:
             print(f"Varnar: kunde inte läsa {p} ({e})")
 
-    df = pd.concat(df_cities, ignore_index=True)
+    df_cities = pd.concat(df_cities, ignore_index=True)
+
+    for p in df_cities.index:
+        print(df_cities.at[p, 'path'])
+        if df_cities.at[p, 'path'] is None:
+            continue
+        jpg_path = convert_png_to_jpg(f"{df_cities.at[p, 'path']}", f"{STREETVIEW_JPG_PATH}/{str(img_counter)}.jpg")
+        df_cities.at[p, "path"] = jpg_path
+        img_counter += 1
+
+
+
+    df = pd.concat([df_mapped, df1,  df_cities], ignore_index=True)
     print(f"Antal bilder i cities: {len(df) - len(df1)}")
+
 
     # Rensa upp: kasta rader utan lat/lon och utanför giltiga intervall
     df = df.dropna(subset=["lat", "lon"])
     df = df[(df["lat"] >= -90) & (df["lat"] <= 90) & (df["lon"] >= -180) & (df["lon"] <= 180)]
+
+
 
     LEVEL = 6  # justera för magnifikation
     def latlon_to_s2(lat, lon, level):
@@ -85,19 +123,15 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.
     
     df[f"cell_id"] = [latlon_to_s2(lat, lon, LEVEL).id() for lat, lon in zip(df.lat, df.lon)]
     
-    # for i in range(LEVEL):
-    #     # Mappa varje punkt till sin S2-cell på vald nivå
-    #     df[f"cell_id_{i+1}"] = [latlon_to_s2(lat, lon, i+1).id() for lat, lon in zip(df.lat, df.lon)]
-
     df.to_csv("data.csv", index=False)
     return df
 
 
 
 def convert_png_to_jpg(png_path, jpg_path):
+    """Convert a PNG image to JPG and save it to the specified path."""
     path = Path(jpg_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-
 
     im = Image.open(png_path)
     rgb_im = im.convert('RGB')
