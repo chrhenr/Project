@@ -20,8 +20,6 @@ MAPPED_PATH = "./data_mapped"
 
 def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bool) -> pd.DataFrame:
     if vm:
-        if not os.path.exists(STREETVIEW_JPG_PATH):
-            os.makedirs(STREETVIEW_JPG_PATH)
         with zipfile.ZipFile("streetview_jpg.zip", 'r') as zip_ref:
             zip_ref.extractall(STREETVIEW_JPG_PATH)
     if recompute == False:
