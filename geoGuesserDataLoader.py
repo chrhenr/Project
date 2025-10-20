@@ -8,7 +8,6 @@ class GeoGuesserDataset(Dataset):
         self.dataframe = dataframe
         self.transform = transform
 
-
     def __len__(self):
         return len(self.dataframe)
 
@@ -22,3 +21,4 @@ class GeoGuesserDataset(Dataset):
         label = torch.tensor(self.dataframe.iloc[idx]['cell_label'], dtype=torch.long)
 
         return img, label
+

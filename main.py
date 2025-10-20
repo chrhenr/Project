@@ -7,8 +7,9 @@ import numpy as np
 from s2sphere import CellId, LatLng, Cell
 import torch.nn as nn
 import torch
+from torchvision import models
 
-from random import randint
+from random import randint, random
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Normalize, ToTensor, Compose, Resize
@@ -20,7 +21,7 @@ from geoGuesserDataLoader import GeoGuesserDataset
 from map_plot import MapPlotter
 from df_prep import load_data
 from timer import run_with_timer
-from geo_network import GeoNetworkTest, training_loop
+from geo_network import GeoNetworkBaseline, Head, training_loop
 
 
 CITIES_PATH = "./cities"
@@ -30,17 +31,25 @@ BATCH_SIZE = 256
 
 
 transform = Compose([
-    Resize((128, 128)),
+    Resize((224, 224)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
 
 def main():
+    SEED = 69
+    np.random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED); torch.cuda.manual_seed_all(SEED)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    if device.type == "cuda":
+        print(torch.cuda.get_device_name(0))
+        torch.backends.cudnn.benchmark = True
+
     # plot_s2_grid(cells)
     df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False)  
 
-    
     df_img_and_labels = df[['path', 'cell_id']]
     df_img_and_labels, cell_to_idx, idx_to_cell = encode_cells(df_img_and_labels)
 
@@ -56,33 +65,55 @@ def main():
     geo_dataloader_train, geo_dataloader_val = small_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
+    save_path = "./geo_network_test.pth"
 
+    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+
+    model = GeoNetworkBaseline(224)
+    model.load_state_dict(torch.load(save_path))
+    model.eval()
+
+    # tl_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
+    # head = Head()
+
+    # tl_model.classifier = head
+
+    plotter = MapPlotter(df)
+    # for feature_layers in model.features:
+    #     for param in feature_layers.parameters():
+    #         param.requires_grad = False
+
+    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+
+    model.load_state_dict(torch.load(save_path))
+    model.eval()
+
+    # Predict and plot on test dataset
+    test_and_plot(model, geo_dataloader_test, plotter, array)
+
+
+def test_and_plot(model, dataloader, plotter, array):
+    model.eval()
+    with torch.no_grad():
+        for index, (image, labels) in enumerate(dataloader):
+            preds = model(image)
+            plotter.plot_predictions(array[index], preds)
+
+
+
+def train_model(train, val, save_path):
     # Initialize model, optimizer, and loss function
-    first_model = GeoNetworkTest(128)
+    first_model = GeoNetworkBaseline(224)
     optimizer = torch.optim.Adam(first_model.parameters(), lr=1e-4)
     loss_fn = nn.CrossEntropyLoss()
 
     # Start training
     first_model, train_losses, train_accs, val_losses, val_accs = training_loop(
-        first_model, optimizer, loss_fn, geo_dataloader_train, geo_dataloader_val,
+        first_model, optimizer, loss_fn, train, val,
         num_epochs=1, print_every=2
     )
 
-    save_path = "./geo_network_test.pth"
     torch.save(first_model.state_dict(), save_path)
-
-    #test
-    plotter = MapPlotter(df)
-    first_model = torch.load(save_path)
-    print
-    first_model.eval()
-
-    for i in range(len(geo_dataloader_test)):
-        images, labels = next(iter(geo_dataloader_test))
-        preds = first_model(images)
-        plotter.plot_predictions(images, preds, labels)
-
-
 
 
 def small_dataset(df_img_labels):
@@ -101,8 +132,7 @@ def small_dataset(df_img_labels):
 def test_dataset(df_img_labels):
 
     dataset_test = GeoGuesserDataset(df_img_labels, transform=transform)
-
-    geo_dataloader_test = DataLoader(dataset_test, batch_size=32, shuffle=False, num_workers=4)
+    geo_dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=4)
 
     return geo_dataloader_test    
 
@@ -128,12 +158,6 @@ def encode_cells(df):
 
     # Add encoded labels as a new column
     df['cell_label'] = df['cell_id'].map(cell_to_idx)
-
-    # tensor = torch.tensor(df['cell_label'].values, dtype=torch.long)
-    # one_hot = nn.functional.one_hot(tensor)
-    # df['cell_label_one_hot'] = list(one_hot.numpy())
-
-    # df.drop(columns=['cell_label'], inplace=True)
 
     return df, cell_to_idx, idx_to_cell
 

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class GeoNetworkTest(nn.Module):
+class GeoNetworkBaseline(nn.Module):
     def __init__(self, img_size: int):
         super().__init__()
         self.img_size = img_size  # used to compute the FC input size
@@ -29,7 +29,24 @@ class GeoNetworkTest(nn.Module):
         x = self.classifier(x)                  # (B, 3120)
         return x                   # (B, 3120)
 
+class Head(nn.Module):
+    def __init__(self):
+        super().__init__()
+        in_features = 1280
 
+        self.classifier = nn.Sequential(
+        nn.Linear(in_features, 4096),
+        nn.ReLU(inplace=True),
+        nn.Dropout(p=0.5),
+        nn.Linear(4096, 1),
+        nn.Sigmoid()
+        )
+
+    def forward(self, input_batch):
+        x = input_batch.reshape(input_batch.size(0), -1)
+        x = self.classifier(x)
+        return x.squeeze(-1)
+        
 def training_loop(
     model, optimizer, loss_fn, train_loader, val_loader, num_epochs, print_every
 ):
