@@ -40,7 +40,7 @@ transform = Compose([
 def main():
 
     # Läs in data
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=True)  
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=True, vm=False)  
 
     df_img_and_labels = df[['path', 'cell_id']]
     df_img_and_labels, cell_to_idx, idx_to_cell = encode_cells(df_img_and_labels)
