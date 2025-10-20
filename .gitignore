@@ -3,3 +3,5 @@
 /streetview
 /streetview_jpg
 /__pycache__
+/data_mapped
+geo_network_test.pth
