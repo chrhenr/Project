@@ -39,15 +39,15 @@ class MapPlotter:
             lons = [p[1] for p in poly]
             polygon = Polygon(list(zip(lons, lats)), closed=True, linewidth=0.5, edgecolor=(0, 0, 0, 1.0), facecolor=(1, 0, 0, probabilities[index] if probabilities is not None else 0.0))
             plt.gca().add_patch(polygon)
+        
+        plt.imshow(plt.imread(image))
+        plt.show()
 
         plt.title(f"S2 world grid at level={6} with ALL image points")
         plt.xlabel("Longitude"); plt.ylabel("Latitude")
         plt.xlim(-180, 180); plt.ylim(-90, 90)
         plt.gca().set_aspect("equal", adjustable="box")
         plt.tight_layout()
-        plt.show()
-
-        plt.imshow(plt.imread(image))
         plt.show()
 
         return "Plotting complete."

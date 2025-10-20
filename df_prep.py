@@ -122,10 +122,6 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
     df = df.dropna(subset=["path"])
     
     df.to_csv("data.csv", index=False)
-    
-    for p in df.index:
-        if not os.path.exists(df.at[p, "path"]):
-            print(f"Varnar: Bilden {df.at[p, 'path']} finns inte på disken.")
 
     return df
 
