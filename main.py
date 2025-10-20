@@ -35,7 +35,7 @@ transform = Compose([
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
-
+    
 def main():
     # plot_s2_grid(cells)
     df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False)  
@@ -139,4 +139,6 @@ def encode_cells(df):
 
 
 if __name__ == "__main__":
-    main()
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False)
+    cells = df["cell_id_6"].unique().tolist()   
+    main(df, cells=cells, transform=transform)
