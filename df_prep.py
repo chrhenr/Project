@@ -15,9 +15,7 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 STREETVIEW_JPG_PATH = "./streetview_jpg"
 MAPPED_PATH = "./data_mapped"
-MAPPED_PATH = "./data_mapped"
 
-def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.DataFrame:
 def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.DataFrame:
     if recompute == False:
         return pd.read_csv("data.csv")
@@ -51,29 +49,6 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.
 
 
     # Läs in data fron streetview
-    #läs in data fron data_mapped
-    mapped_path = Path(mapped_path)
-    json_files = list(mapped_path.glob("*.json"))
-    img_files = list(mapped_path.glob("*.png"))
-
-
-    # Läs in data från data_mapped
-    mapped_dict = {"lat": [], "lon": [], "path": []}
-    for i in range(len(json_files)):
-        assert json_files[i].stem == img_files[i].stem, f"Filerna {json_files[i]} och {img_files[i]} matchar inte!"
-        # Läs in JSON-data
-        with open(json_files[i], encoding="utf-8") as f:
-            data = json.load(f)
-        df_mapped = pd.DataFrame()
-        mapped_dict["lat"].append(data['coordinates'][0])
-        mapped_dict["lon"].append(data['coordinates'][1])
-        mapped_dict["path"].append(str(f"{MAPPED_PATH}/{img_files[i].stem}.png"))
-
-    df_mapped = pd.DataFrame(mapped_dict)
-
-
-
-    # Läs in data fron streetview
     df1 = pd.read_csv(streetview_coords_path, names=["lat", "lon"])
 
     for p in df1.index:
@@ -83,12 +58,7 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool) -> pd.
 
     df_cities = [df_mapped, df1]
 
-
-    df_cities = [df_mapped, df1]
-
     print(f"Totalt antal bilder i Street View: {len(df1)}")
-
-    # Läs in data från cities
 
     # Läs in data från cities
     for p in csv_files:
