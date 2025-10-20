@@ -40,7 +40,7 @@ transform = Compose([
 def main():
 
     # Läs in data
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=True, vm=False)  
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=False)  
 
     df_img_and_labels = df[['path', 'cell_id']]
     df_img_and_labels, cell_to_idx, idx_to_cell = encode_cells(df_img_and_labels)
@@ -64,19 +64,13 @@ def main():
     save_path = "./geo_network_test.pth"
 
     # Train the model
-    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+    train_model(geo_dataloader_train, geo_dataloader_val, save_path)
 
 
     # Load the trained model
     model = GeoNetworkBaseline(224)
     model.load_state_dict(torch.load(save_path))
     model.eval()
-
-
-    # Träna en transfer learning modell
-    # tl_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
-    # head = Head()
-    # tl_model.classifier = head
 
 
     plotter = MapPlotter(df)
