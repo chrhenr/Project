@@ -62,12 +62,12 @@ def main():
         df_img_and_labels = df_img_and_labels.drop(i)
 
 
-    geo_dataloader_train, geo_dataloader_val = small_dataset(df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
 
-    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+    train_model(geo_dataloader_train, geo_dataloader_val, save_path)
 
     model = GeoNetworkBaseline(224)
     model.load_state_dict(torch.load(save_path))
@@ -85,8 +85,6 @@ def main():
 
     # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
 
-    model.load_state_dict(torch.load(save_path))
-    model.eval()
 
     # Predict and plot on test dataset
     test_and_plot(model, geo_dataloader_test, plotter, array)

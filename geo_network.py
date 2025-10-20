@@ -11,14 +11,20 @@ class GeoNetworkBaseline(nn.Module):
         self.features = nn.Sequential(
             nn.Conv2d(3, 10, kernel_size=3, stride=1, padding=0),
             nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
             nn.Conv2d(10, 10, kernel_size=3, stride=1, padding=0),
             nn.ReLU(inplace=True),
+             nn.MaxPool2d(2),
         )
 
-        # After two valid 3×3 convs: H' = W' = D - 4
-        d_after = img_size - 4
+        # After two valid 3×3 convs: H' = W' = D - 4 -- NO LONGER VALID WITH POOLING
+        #d_after = img_size - 4
+        # in_features = 10 * d_after * d_after  # keep ALL spatial positions
+        with torch.no_grad():
+            dummy_input = torch.zeros(1, 3, img_size, img_size)  # batch size = 1
+            dummy_output = self.features(dummy_input)
+            in_features = dummy_output.view(1, -1).size(1)
 
-        in_features = 10 * d_after * d_after  # keep ALL spatial positions
         self.classifier = nn.Sequential(
             nn.Linear(in_features, 3120),
         )
