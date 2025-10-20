@@ -13,6 +13,7 @@ class MapPlotter:
 
     #Plotting functions
     def cell_boundary(self, cell_id):
+        """Return the boundary vertices of an S2 cell given its cell ID."""
         c = Cell(CellId(cell_id))
         verts = []
         for i in range(4):
@@ -22,7 +23,7 @@ class MapPlotter:
         return verts + [verts[0]]
 
     def plot_s2_grid(self, probabilities=None, image=None):
-
+        """Plot the S2 grid cells and optionally color them based on probabilities."""
         plt.figure(figsize=(14, 7))
 
         # Rita punkter (sampla om datasetet är jättestort)
@@ -33,7 +34,7 @@ class MapPlotter:
         # Rita cellernas polygoner (endast celler som faktiskt har data)
         for index, cid in enumerate(self.cells):
             poly = self.cell_boundary(cid)
-            # print(f"Ritar cell med ID: {cid} och hörn: {poly}")   
+
             lats = [p[0] for p in poly]
             lons = [p[1] for p in poly]
             polygon = Polygon(list(zip(lons, lats)), closed=True, linewidth=0.5, edgecolor=(0, 0, 0, 1.0), facecolor=(1, 0, 0, probabilities[index] if probabilities is not None else 0.0))
@@ -52,6 +53,7 @@ class MapPlotter:
         return "Plotting complete."
 
     def plot_predictions(self, image_index, logits):
+        """Plot the S2 grid with predicted probabilities for a given image index."""
         probabilities = torch.nn.functional.softmax(logits, dim=1)
         image = self.df.iloc[image_index]['path']
     
