@@ -31,7 +31,7 @@ BATCH_SIZE = 256
 
 
 transform = Compose([
-    Resize((224, 224)),
+    Resize((32, 32)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
@@ -40,7 +40,8 @@ transform = Compose([
 def main():
 
     # Läs in data
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=True, vm=False)  
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=False)
+    df = df.dropna(subset=["path"])  
 
     df_img_and_labels = df[['path', 'cell_id']]
     df_img_and_labels, cell_to_idx, idx_to_cell = encode_cells(df_img_and_labels)
@@ -58,17 +59,17 @@ def main():
 
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = small_dataset(df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
 
     # Train the model
-    # train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+    train_model(geo_dataloader_train, geo_dataloader_val, save_path)
 
 
     # Load the trained model
-    model = GeoNetworkBaseline(224)
+    model = GeoNetworkBaseline(32)
     model.load_state_dict(torch.load(save_path))
     model.eval()
 
@@ -98,7 +99,7 @@ def test_and_plot(model, dataloader, plotter, array):
 def train_model(train, val, save_path):
     """Train the GeoNetwork model."""
     # Initialize model, optimizer, and loss function
-    first_model = GeoNetworkBaseline(224)
+    first_model = GeoNetworkBaseline(32)
     optimizer = torch.optim.Adam(first_model.parameters(), lr=1e-4)
     loss_fn = nn.CrossEntropyLoss()
 

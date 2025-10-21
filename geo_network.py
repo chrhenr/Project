@@ -14,7 +14,7 @@ class GeoNetworkBaseline(nn.Module):
             nn.MaxPool2d(2),
             nn.Conv2d(10, 10, kernel_size=3, stride=1, padding=0),
             nn.ReLU(inplace=True),
-             nn.MaxPool2d(2),
+            nn.MaxPool2d(2),
         )
 
         # After two valid 3×3 convs: H' = W' = D - 4 -- NO LONGER VALID WITH POOLING
