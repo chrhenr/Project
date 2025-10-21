@@ -44,9 +44,10 @@ class Head(nn.Module):
         self.out_features = output_features
 
         self.classifier = nn.Sequential(
-        nn.Linear(self.in_features, 4096),
+        nn.Linear(self.in_features, 8192),
         nn.ReLU(inplace=True),
-        nn.Dropout(p=0.3),
+        nn.Linear(8192, 4096),
+        nn.ReLU(inplace=True),
         nn.Linear(4096, self.out_features),
         )
 

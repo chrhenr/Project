@@ -27,7 +27,10 @@ from geo_network import GeoNetworkBaseline, Head, training_loop, model_ResNet50
 CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
-BATCH_SIZE = 512
+EARTH_RADIUS_KM = 6371.0
+BATCH_SIZE = 256
+LEARNING_RATE = 1e-3
+NUM_EPOCHS = 10
 
 
 transform = Compose([
@@ -38,6 +41,7 @@ transform = Compose([
 
 
 def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Läs in data
     df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=False)
@@ -66,8 +70,8 @@ def main():
 
     # Train the model
     model = model_ResNet50()
+    model.to(device)
 
-    #freeze feature layers, only train head
 
     # Freeze all layers
     for param in model.parameters():
@@ -79,7 +83,6 @@ def main():
 
     #train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
-
     # Load the trained model
     model.load_state_dict(torch.load(save_path))
     model.eval()
@@ -90,6 +93,7 @@ def main():
     # Predict and plot on test dataset
     pred_list = test_and_plot(model, geo_dataloader_test, plotter, array)
 
+    # Calculate average distance
     distance = 0.0
     for i in range(len(pred_list)):
         pred_cell_idx = torch.argmax(pred_list[i], dim=1).item()
@@ -104,30 +108,29 @@ def test_and_plot(model, dataloader, plotter, array):
     """Test the model on the test dataset and plot predictions."""
     model.eval()
     pred_list = []
-    #sdevice = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = next(model.parameters()).device  # ✅ safer and consistent
-    print(f"Using device: {device}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     with torch.no_grad():
         for index, (image, labels) in enumerate(dataloader):
             image = image.to(device)
             preds = model(image)
-            plotter.plot_predictions(array[index], preds)
             pred_list.append(preds)
+            if index % 10 == 0:
+                plotter.plot_predictions(array[index], preds)
+
     return pred_list
 
 
 def train_model(model, train, val, save_path):
     """Train the GeoNetwork model."""
     # Initialize model, optimizer, and loss function
-    
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss_fn = nn.CrossEntropyLoss()
 
     # Start training
     model, train_losses, train_accs, val_losses, val_accs = training_loop(
         model, optimizer, loss_fn, train, val,
-        num_epochs=1, print_every=2
+        num_epochs=NUM_EPOCHS, print_every=2
     )
 
     torch.save(model.state_dict(), save_path)
@@ -141,15 +144,23 @@ def get_distance(prediction, label):
     pred_center = LatLng.from_point(pred_cell.to_lat_lng().to_point())
     true_center = LatLng.from_point(true_cell.to_lat_lng().to_point())
 
-    distance = pred_center.get_distance(true_center).radians
+    distance = EARTH_RADIUS_KM*pred_center.get_distance(true_center).radians
     return distance
 
 
+def very_small_dataset(df_img_labels):
+    """Create a small dataset for quick testing."""
+    smaller_df = df_img_labels.sample(n=100, random_state=42)
 
+    df_train, df_val = train_test_split(smaller_df, test_size=0.2)
 
+    dataset_val = GeoGuesserDataset(df_val, transform=transform)
+    dataset_train = GeoGuesserDataset(df_train, transform=transform)
 
+    geo_dataloader_val = DataLoader(dataset_val, batch_size=32, shuffle=False, num_workers=4)
+    geo_dataloader_train = DataLoader(dataset_train, batch_size=32, shuffle=True,num_workers=4)
 
-
+    return geo_dataloader_train, geo_dataloader_val
 
 
 def small_dataset(df_img_labels):
