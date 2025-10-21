@@ -58,13 +58,14 @@ def main():
 
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = small_dataset(df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
 
     # Train the model
     model = model_ResNet50()
+
 
     #freeze feature layers, only train head
 
@@ -78,7 +79,6 @@ def main():
 
     train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
-
     # Load the trained model
     model.load_state_dict(torch.load(save_path))
     model.eval()
@@ -89,6 +89,7 @@ def main():
     # Predict and plot on test dataset
     pred_list = test_and_plot(model, geo_dataloader_test, plotter, array)
 
+    # Calculate average distance
     distance = 0.0
     for i in range(len(pred_list)):
         pred_cell_idx = torch.argmax(pred_list[i], dim=1).item()
@@ -106,7 +107,7 @@ def test_and_plot(model, dataloader, plotter, array):
     with torch.no_grad():
         for index, (image, labels) in enumerate(dataloader):
             preds = model(image)
-            plotter.plot_predictions(array[index], preds)
+            # plotter.plot_predictions(array[index], preds)
             pred_list.append(preds)
     return pred_list
 
