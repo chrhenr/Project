@@ -27,7 +27,7 @@ from geo_network import GeoNetworkBaseline, Head, training_loop, model_ResNet50
 CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 
 
 transform = Compose([
@@ -77,7 +77,7 @@ def main():
     for param in model.fc.parameters():
         param.requires_grad = True
 
-    train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
+    #train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
 
     # Load the trained model
@@ -104,8 +104,13 @@ def test_and_plot(model, dataloader, plotter, array):
     """Test the model on the test dataset and plot predictions."""
     model.eval()
     pred_list = []
+    #sdevice = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = next(model.parameters()).device  # ✅ safer and consistent
+    print(f"Using device: {device}")
+
     with torch.no_grad():
         for index, (image, labels) in enumerate(dataloader):
+            image = image.to(device)
             preds = model(image)
             plotter.plot_predictions(array[index], preds)
             pred_list.append(preds)
