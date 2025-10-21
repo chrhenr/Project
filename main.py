@@ -30,7 +30,7 @@ MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
 BATCH_SIZE = 256
 LEARNING_RATE = 1e-3
-NUM_EPOCHS = 1
+NUM_EPOCHS = 10
 
 
 transform = Compose([
@@ -63,7 +63,7 @@ def main():
 
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = very_small_dataset(df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
