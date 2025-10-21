@@ -65,6 +65,12 @@ def main():
 
     # Train the model
     model = model_ResNet50()
+
+    #freeze feature layers, only train head
+    for feature in model.features:
+        for param in feature.parameters():
+            param.requires_grad = False
+
     train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
 
@@ -77,7 +83,7 @@ def main():
 
     # Predict and plot on test dataset
     pred_list = test_and_plot(model, geo_dataloader_test, plotter, array)
-    
+
     distance = 0.0
     for i in range(len(pred_list)):
         pred_cell_idx = torch.argmax(pred_list[i], dim=1).item()
