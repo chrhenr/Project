@@ -20,12 +20,11 @@ MAPPED_PATH = "./data_mapped"
 
 def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bool) -> pd.DataFrame:
     if vm:
-        if not os.path.exists(STREETVIEW_JPG_PATH):
-            os.makedirs(STREETVIEW_JPG_PATH)
         with zipfile.ZipFile("streetview_jpg.zip", 'r') as zip_ref:
-            zip_ref.extractall(STREETVIEW_JPG_PATH)
+            zip_ref.extractall('.')
     if recompute == False:
-        return pd.read_csv("data.csv")
+        df = pd.read_csv("data.csv")
+        return df.dropna(subset=["path"])
 
             
     # Filvägar
@@ -35,6 +34,8 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
     cities_dataframes_path = cities_path + "/Dataframes"
     cities_dataframes_dir = Path(cities_dataframes_path)
     csv_files = sorted(cities_dataframes_dir.glob("*.csv"))
+
+
     #läs in data fron data_mapped
     mapped_path = Path(mapped_path)
     json_files = list(mapped_path.glob("*.json"))
@@ -42,7 +43,6 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
 
 
     img_counter = 0
-
 
 
     #### Läs in data från data_mapped och flytta de till streetview_jpg ####
@@ -66,7 +66,6 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
         img_counter += 1
 
 
-
     #### Läs in data från streetview och flytta de till streetview_jpg ####
     df1 = pd.read_csv(streetview_coords_path, names=["lat", "lon"])
 
@@ -79,8 +78,6 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
     df_cities = []
 
     print(f"Totalt antal bilder i Street View: {len(df1)}")
-
-
 
 
     #### Läs in data från cities och flytta de till streetview_jpg ####
@@ -98,7 +95,6 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
     df_cities = pd.concat(df_cities, ignore_index=True)
 
     for p in df_cities.index:
-        print(df_cities.at[p, 'path'])
         if df_cities.at[p, 'path'] is None:
             continue
         jpg_path = convert_png_to_jpg(f"{df_cities.at[p, 'path']}", f"{STREETVIEW_JPG_PATH}/{str(img_counter)}.jpg")
@@ -122,8 +118,11 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
             return CellId.from_lat_lng(LatLng.from_degrees(lat, lon)).parent(level)
     
     df[f"cell_id"] = [latlon_to_s2(lat, lon, LEVEL).id() for lat, lon in zip(df.lat, df.lon)]
+
+    df = df.dropna(subset=["path"])
     
     df.to_csv("data.csv", index=False)
+
     return df
 
 

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-from s2sphere import CellId, LatLng, Cell
+from s2sphere import CellId, LatLng, Cell, Angle
 import torch.nn as nn
 import torch
 from torchvision import models
@@ -21,7 +21,7 @@ from geoGuesserDataLoader import GeoGuesserDataset
 from map_plot import MapPlotter
 from df_prep import load_data
 from timer import run_with_timer
-from geo_network import GeoNetworkBaseline, Head, training_loop
+from geo_network import GeoNetworkBaseline, Head, training_loop, model_ResNet50
 
 
 CITIES_PATH = "./cities"
@@ -65,51 +65,86 @@ def main():
     save_path = "./geo_network_test.pth"
 
     # Train the model
-    train_model(geo_dataloader_train, geo_dataloader_val, save_path)
+    model = model_ResNet50()
+
+    #freeze feature layers, only train head
+
+    # Freeze all layers
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Unfreeze only the classification head
+    for param in model.fc.parameters():
+        param.requires_grad = True
+
+    train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
 
     # Load the trained model
-    model = GeoNetworkBaseline(32)
     model.load_state_dict(torch.load(save_path))
     model.eval()
-
-
-    # Träna en transfer learning modell
-    # tl_model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
-    # head = Head()
-    # tl_model.classifier = head
 
 
     plotter = MapPlotter(df)
 
     # Predict and plot on test dataset
-    test_and_plot(model, geo_dataloader_test, plotter, array)
+    pred_list = test_and_plot(model, geo_dataloader_test, plotter, array)
+
+    distance = 0.0
+    for i in range(len(pred_list)):
+        pred_cell_idx = torch.argmax(pred_list[i], dim=1).item()
+        pred_cell_id = idx_to_cell[pred_cell_idx]
+        true_cell_id = df_test.iloc[i]['cell_id']
+        distance += get_distance(pred_cell_id, true_cell_id)
+
+    print(f"Average distance for test samples: {distance / len(pred_list):.2f} km")
 
 
 def test_and_plot(model, dataloader, plotter, array):
     """Test the model on the test dataset and plot predictions."""
     model.eval()
+    pred_list = []
     with torch.no_grad():
         for index, (image, labels) in enumerate(dataloader):
             preds = model(image)
             plotter.plot_predictions(array[index], preds)
+            pred_list.append(preds)
+    return pred_list
 
 
-
-def train_model(train, val, save_path):
+def train_model(model, train, val, save_path):
     """Train the GeoNetwork model."""
     # Initialize model, optimizer, and loss function
-    first_model = GeoNetworkBaseline(32)
-    optimizer = torch.optim.Adam(first_model.parameters(), lr=1e-4)
+    
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     loss_fn = nn.CrossEntropyLoss()
 
     # Start training
-    first_model, train_losses, train_accs, val_losses, val_accs = training_loop(
-        first_model, optimizer, loss_fn, train, val,
+    model, train_losses, train_accs, val_losses, val_accs = training_loop(
+        model, optimizer, loss_fn, train, val,
         num_epochs=1, print_every=2
     )
 
-    torch.save(first_model.state_dict(), save_path)
+    torch.save(model.state_dict(), save_path)
+
+
+def get_distance(prediction, label):
+    """Calculate the distance in kilometers between predicted and true cell."""
+    pred_cell = CellId(prediction)
+    true_cell = CellId(label)
+
+    pred_center = LatLng.from_point(pred_cell.to_lat_lng().to_point())
+    true_center = LatLng.from_point(true_cell.to_lat_lng().to_point())
+
+    distance = pred_center.get_distance(true_center).radians
+    return distance
+
+
+
+
+
+
+
 
 
 def small_dataset(df_img_labels):

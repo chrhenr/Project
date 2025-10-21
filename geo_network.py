@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from torchvision import models
+
 
 
 class GeoNetworkBaseline(nn.Module):
@@ -17,9 +19,6 @@ class GeoNetworkBaseline(nn.Module):
             nn.MaxPool2d(2),
         )
 
-        # After two valid 3×3 convs: H' = W' = D - 4 -- NO LONGER VALID WITH POOLING
-        #d_after = img_size - 4
-        # in_features = 10 * d_after * d_after  # keep ALL spatial positions
         with torch.no_grad():
             dummy_input = torch.zeros(1, 3, img_size, img_size)  # batch size = 1
             dummy_output = self.features(dummy_input)
@@ -33,26 +32,37 @@ class GeoNetworkBaseline(nn.Module):
         x = self.features(input_batch)          # (B, 10, D-4, D-4)
         x = x.reshape(x.size(0), -1)            # (B, 10*(D-4)*(D-4))
         x = self.classifier(x)                  # (B, 3120)
-        return x                   # (B, 3120)
+        return x                                # (B, 3120)
+
+
 
 class Head(nn.Module):
-    def __init__(self):
+    """The classification head."""
+    def __init__(self, input_features, output_features):
         super().__init__()
-        in_features = 1280
+        self.in_features = input_features
+        self.out_features = output_features
 
         self.classifier = nn.Sequential(
-        nn.Linear(in_features, 4096),
+        nn.Linear(self.in_features, 4096),
         nn.ReLU(inplace=True),
-        nn.Dropout(p=0.5),
-        nn.Linear(4096, 1),
-        nn.Sigmoid()
+        nn.Dropout(p=0.3),
+        nn.Linear(4096, self.out_features),
         )
 
-    def forward(self, input_batch):
-        x = input_batch.reshape(input_batch.size(0), -1)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.classifier(x)
         return x.squeeze(-1)
-        
+
+
+def model_ResNet50() -> nn.Module:
+    """Create a GeoNetwork model based on ResNet50."""
+    model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+    num_ftrs = model.fc.in_features
+    model.fc = Head(num_ftrs, 3120)  # Adjust the final layer for 3120 classes
+    return model
+
+
 def training_loop(
     model, optimizer, loss_fn, train_loader, val_loader, num_epochs, print_every
 ):
