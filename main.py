@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-from s2sphere import CellId, LatLng, Cell, Angle, Earth
+from s2sphere import CellId, LatLng, Cell, Angle
 import torch.nn as nn
 import torch
 from torchvision import models
@@ -67,9 +67,14 @@ def main():
     model = model_ResNet50()
 
     #freeze feature layers, only train head
-    for feature in model.features:
-        for param in feature.parameters():
-            param.requires_grad = False
+
+    # Freeze all layers
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Unfreeze only the classification head
+    for param in model.fc.parameters():
+        param.requires_grad = True
 
     train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
@@ -130,7 +135,7 @@ def get_distance(prediction, label):
     pred_center = LatLng.from_point(pred_cell.to_lat_lng().to_point())
     true_center = LatLng.from_point(true_cell.to_lat_lng().to_point())
 
-    distance = Earth.km * pred_center.get_distance(true_center).radians
+    distance = pred_center.get_distance(true_center).radians
     return distance
 
 
