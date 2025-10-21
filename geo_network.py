@@ -37,28 +37,36 @@ class GeoNetworkBaseline(nn.Module):
 
 
 class Head(nn.Module):
-    """The classification head."""
-    def __init__(self, input_features, output_features):
+    def __init__(self, in_features, out_features):
         super().__init__()
-        self.in_features = input_features
-        self.out_features = output_features
-
-        self.classifier = nn.Sequential(
-        nn.Linear(self.in_features, 8192),
-        nn.ReLU(inplace=True),
-        nn.Linear(8192, 4096),
-        nn.ReLU(inplace=True),
-        nn.Linear(4096, self.out_features),
+        self.net = nn.Sequential(
+            nn.Linear(in_features, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(1024, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, out_features)
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.classifier(x)
-        return x.squeeze(-1)
+    def forward(self, x):
+        return self.net(x)
 
 
 def model_ResNet50() -> nn.Module:
     """Create a GeoNetwork model based on ResNet50."""
     model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+    for param in model.parameters():
+        param.requires_grad = False
+
+    for param in model.layer3.parameters():
+        param.requires_grad = True
+        
+    for param in model.layer4.parameters():
+        param.requires_grad = True
+
     num_ftrs = model.fc.in_features
     model.fc = Head(num_ftrs, 3120)  # Adjust the final layer for 3120 classes
     return model

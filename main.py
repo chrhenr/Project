@@ -30,7 +30,7 @@ MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
 BATCH_SIZE = 256
 LEARNING_RATE = 1e-3
-NUM_EPOCHS = 10
+NUM_EPOCHS = 1
 
 
 transform = Compose([
@@ -63,7 +63,7 @@ def main():
 
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = very_small_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
@@ -72,14 +72,6 @@ def main():
     model = model_ResNet50()
     model.to(device)
 
-
-    # Freeze all layers
-    for param in model.parameters():
-        param.requires_grad = False
-
-    # Unfreeze only the classification head
-    for param in model.fc.parameters():
-        param.requires_grad = True
 
     train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
@@ -124,7 +116,11 @@ def test_and_plot(model, dataloader, plotter, array):
 def train_model(model, train, val, save_path):
     """Train the GeoNetwork model."""
     # Initialize model, optimizer, and loss function
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam([
+    {'params': model.fc.parameters(), 'lr': 1e-3},
+    {'params': model.layer4.parameters(), 'lr': 1e-4},
+    {'params': model.layer3.parameters(), 'lr': 1e-4},
+    ])
     loss_fn = nn.CrossEntropyLoss()
 
     # Start training
