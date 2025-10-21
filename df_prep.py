@@ -58,7 +58,7 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
         mapped_dict["path"].append(str(f"{MAPPED_PATH}/{img_files[i].stem}.png"))
 
     df_mapped = pd.DataFrame(mapped_dict)
-    df_mapped = df_mapped.sample(10000, random_state=1) 
+    #df_mapped = df_mapped.sample(10000, random_state=1) 
 
     for p in df_mapped.index:
         jpg_path = convert_png_to_jpg(str(df_mapped.at[p, 'path']), f"{STREETVIEW_JPG_PATH}/{str(img_counter)}.jpg")

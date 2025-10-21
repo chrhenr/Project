@@ -4,5 +4,7 @@
 /streetview_jpg
 /__pycache__
 /data_mapped
+/models
 geo_network_test.pth
 streetview_jpg.zip
+datasampled.csv
