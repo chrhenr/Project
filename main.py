@@ -30,7 +30,7 @@ MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
 BATCH_SIZE = 256
 LEARNING_RATE = 1e-3
-NUM_EPOCHS = 10
+NUM_EPOCHS = 1
 
 
 transform = Compose([
@@ -44,7 +44,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Läs in data
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=False)
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=True)
     df = df.dropna(subset=["path"])  
 
     df_img_and_labels = df[['path', 'cell_id']]
@@ -63,7 +63,7 @@ def main():
 
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = very_small_dataset(df_img_and_labels)
     geo_dataloader_test = test_dataset(df_test)
 
     save_path = "./geo_network_test.pth"
@@ -119,16 +119,14 @@ def train_model(model, train, val, save_path):
     {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
     {'params': model.layer4.parameters(), 'lr': 1e-4},
     {'params': model.layer3.parameters(), 'lr': 1e-4},
-    ])
+    ], weight_decay=1e-5)
     loss_fn = nn.CrossEntropyLoss()
 
     # Start training
     model, train_losses, train_accs, val_losses, val_accs = training_loop(
         model, optimizer, loss_fn, train, val,
-        num_epochs=NUM_EPOCHS, print_every=2
+        num_epochs=NUM_EPOCHS, print_every=2, save_path=save_path
     )
-
-    torch.save(model.state_dict(), save_path)
 
 
 def get_distance(prediction, label):

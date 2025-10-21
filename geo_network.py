@@ -73,7 +73,7 @@ def model_ResNet50() -> nn.Module:
 
 
 def training_loop(
-    model, optimizer, loss_fn, train_loader, val_loader, num_epochs, print_every
+    model, optimizer, loss_fn, train_loader, val_loader, num_epochs, print_every, save_path
 ):
     print("Starting training")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -96,6 +96,7 @@ def training_loop(
         train_accs.extend(train_acc)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
+        torch.save(model.state_dict(), save_path)
     return model, train_losses, train_accs, val_losses, val_accs
 
 
