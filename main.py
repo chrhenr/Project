@@ -73,7 +73,15 @@ def main():
     model.to(device)
 
 
-    train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
+    # Freeze all layers
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Unfreeze only the classification head
+    for param in model.fc.parameters():
+        param.requires_grad = True
+
+    #train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
 
     # Load the trained model
     model.load_state_dict(torch.load(save_path))
