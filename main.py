@@ -31,7 +31,7 @@ BATCH_SIZE = 256
 
 
 transform = Compose([
-    Resize((32, 32)),
+    Resize((224, 224)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
