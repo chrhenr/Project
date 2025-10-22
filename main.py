@@ -34,7 +34,7 @@ NUM_EPOCHS = 10
 
 
 transform = Compose([
-    Resize((224, 224)),
+    Resize((128, 128)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
