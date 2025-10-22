@@ -34,7 +34,7 @@ NUM_EPOCHS = 10
 
 
 transform = Compose([
-    Resize((128, 128)),
+    Resize((224, 224)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
@@ -123,11 +123,11 @@ class GeoGuesserHelper:
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    helper = GeoGuesserHelper(recompute=False, vm=False)
+    helper = GeoGuesserHelper(recompute=False, vm=True)
     helper.prepare_data()
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = very_small_dataset(helper.df_img_and_labels)
+    geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
     # Train the model
     model = model_ResNet50()
