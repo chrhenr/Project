@@ -28,13 +28,13 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
-BATCH_SIZE = 256
-LEARNING_RATE = 1e-3
-NUM_EPOCHS = 10
+BATCH_SIZE = 1024
+LEARNING_RATE = 1e-4
+NUM_EPOCHS = 20
 
 
 transform = Compose([
-    Resize((224, 224)),
+    Resize((128, 128)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
@@ -44,7 +44,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Läs in data
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=True)
+    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=False)
     df = df.dropna(subset=["path"])  
 
     df_img_and_labels = df[['path', 'cell_id']]
@@ -119,7 +119,7 @@ def train_model(model, train, val, save_path):
     {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
     {'params': model.layer4.parameters(), 'lr': 1e-4},
     {'params': model.layer3.parameters(), 'lr': 1e-4},
-    ], weight_decay=1e-5)
+    ], weight_decay=1e-2)
     loss_fn = nn.CrossEntropyLoss()
 
     # Start training
