@@ -57,15 +57,28 @@ class MapPlotter:
     def plot_predictions(self, logits):
         """Plot the S2 grid with predicted probabilities for a given image index."""
         probabilities = torch.nn.functional.softmax(logits, dim=1)
-        print(torch.argmax(logits, dim=1).item())
+
 
         # probabilities = probabilities*(probabilities > 0.01).float()
         predicted = probabilities.detach().numpy()
     
         predicted = predicted[0]
-        print(f"predicted: {predicted}")
-        print(f"Predicted cell index: {np.argmax(predicted)}")
         predicted[np.argmax(predicted)] = 1.0  # Highlight the most probable cell
         self.plot_s2_grid(predicted)
 
 
+    def plot_embellished_predictions(self, logits):
+            """Plot the S2 grid with predicted probabilities for a given image index, with embellishments."""
+            probabilities = torch.nn.functional.softmax(logits, dim=1)
+
+            predicted = probabilities.detach().numpy()
+        
+            predicted = predicted[0]
+
+            predicted = predicted*1000 
+            predicted[np.argmax(predicted)] = 1.0  # Highlight the most probable cell
+
+
+            # Load and display a background map image
+            # map_image_path = "world_map.png"  # Path to your world map image
+            self.plot_s2_grid(predicted)

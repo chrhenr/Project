@@ -110,8 +110,8 @@ class GeoGuesserHelper:
         # Initialize model, optimizer, and loss function
         optimizer = torch.optim.Adam([
         {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
-        {'params': model.layer4.parameters(), 'lr': 1e-5},
-        {'params': model.layer3.parameters(), 'lr': 1e-5},
+        {'params': model.layer4.parameters(), 'lr': 1e-4},
+        {'params': model.layer3.parameters(), 'lr': 1e-4},
         ], weight_decay=1e-5)
         loss_fn = nn.CrossEntropyLoss()
 

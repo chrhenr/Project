@@ -19,9 +19,22 @@ class GeoGuesserPlayer:
         self.small_map = (1660, 841)
         self.middle_map = (1287, 568)
 
-        self.mapcoords = (726, 209, 1749, 962)  # x1, y1, x2, y2
+
+        self.mapcoords = (641, 208, 1886, 962)  # x1, y1, x2, y2
 
         self.coords = (-180.0, 180.0, -85.0, 85.0)  # lon_min, lon_max, lat_min, lat_max
+
+        self.kodiak_lon = -152.41789208250827
+        self.kodiak_lat = 57.79491777998742
+        self.kodiak_x = 802
+        self.kodiak_y = 419
+
+        self.hobart_lon = 147.3272
+        self.hobart_lat = -42.8821
+        self.hobart_x = 1656
+        self.hobart_y = 753
+
+
 
     
 
@@ -57,6 +70,9 @@ class GeoGuesserPlayer:
 
 
 
+
+
+
     # def from_latlon_to_pixel(self, lat, lon, x_len, y_len):
     #     # Define the map's visible geographic bounds
     #     lon_min, lon_max, lat_min, lat_max = self.coords
@@ -74,22 +90,33 @@ class GeoGuesserPlayer:
     #     y = (y_len/2) - mercN/(2*math.pi)*y_len
 
     #     return int(x), int(y)
-    def from_latlon_to_pixel(self, lat, lon, x_len, y_len):
-        # Web Mercator valid range
-        lat = max(min(lat, 85.05113), -85.05113)
 
-        # ---- Normalize longitude to [0, 1]
-        x_norm = (lon + 180.0) / 360.0
 
-        # ---- Normalize latitude using Web Mercator formula
-        lat_rad = math.radians(lat)
-        y_norm = (1.0 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2.0
+    def lat_to_mercator_y(self, lat: float) -> float:
+        return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+    
+    def from_latlon_to_pixel(self, lat, lon):
+        # --- Longitude to X (linear scale) ---
+        # Fraction of how far the target lon is between the refs
+        frac_x = (lon - self.kodiak_lon) / (self.hobart_lon - self.kodiak_lon)
+        x = frac_x * (self.hobart_x - self.kodiak_x) + self.kodiak_x
 
-        # ---- Scale to pixel space
-        x = x_norm * x_len
-        y = y_norm * y_len
 
-        return x, y
+        print(f"frac_x: {frac_x}")
+        print(f"lon - self.kodiak_lon: {lon - self.kodiak_lon}")
+        print(f"self.hobart_lon - self.kodiak_lon: {self.hobart_lon - self.kodiak_lon}")
+        print(f"x: {frac_x * (self.hobart_x - self.kodiak_x)}")
+        # --- Latitude to Y (mercator scale) ---
+        merc_kodiak = self.lat_to_mercator_y(self.kodiak_lat)
+        merc_hobart = self.lat_to_mercator_y(self.hobart_lat)
+        merc_target = self.lat_to_mercator_y(lat)
+
+        frac_y = (merc_target - merc_kodiak) / (merc_hobart - merc_kodiak)
+        y = frac_y * (self.hobart_y - self.kodiak_y) + self.kodiak_y
+
+        print(f"frac_y: {frac_y}")
+
+        return round(x), round(y)
         
 
 
@@ -112,15 +139,19 @@ class GeoGuesserPlayer:
         lat = latLon.lat().degrees
         lon = latLon.lng().degrees
 
-        print(torch.argmax(preds, dim=1).item())
-        print(f"Predicted coordinates: ({lat}, {lon})")
-
-        # lat, lon = 45.48279518257026, 9.187580740586846  # Milan Predicted: 44.44359112914816, 8.94298084919457 ->0.98
-        # lat, lon = 57.72289241873738, 11.957686233278697  # Gothenburg  54.078502575921, 11.79937720996049 -> 0.94
-        # lat, lon = 67.86193544963959, 20.232635563787753 # Kiruna 62.69596198522933, 19.940452179979857 -> 0.91
-
         return lat, lon, preds
 
+
+def test_area():
+    player = GeoGuesserPlayer()
+
+    pyautogui.moveTo(player.kodiak_x, player.kodiak_y, duration=1)
+    time.sleep(1)
+    pyautogui.click()
+    time.sleep(1)
+    pyautogui.moveTo(player.hobart_x, player.hobart_y, duration=1)
+    time.sleep(1)
+    pyautogui.click()
 
 def player():
     player = GeoGuesserPlayer()
@@ -131,29 +162,23 @@ def player():
     ##Start the geo guesser map interaction
     img = player.screenshots()
     time.sleep(1)
-    player.close_screenshot_tool()
-    time.sleep(1)
     player.move_to_map()
     time.sleep(1)
-    x_len, y_len, x_mid, y_mid = player.geo_guesser_map()
+    x_mid, y_mid, _, _ = player.geo_guesser_map()
     player.center_map(x_mid, y_mid)
     time.sleep(1)
 
     ## Make prediction
     lat, lon, preds = player.predict_image(img, helper)
-    x_pixel, y_pixel = player.from_latlon_to_pixel(lat, lon, x_len, y_len)
-
-    # lat, lon = -33.918861, 18.423300  # Cape Town
-    # x_pixel, y_pixel = player.from_latlon_to_pixel(lat, lon, x_len, y_len)
-
+    x_pixel, y_pixel = player.from_latlon_to_pixel(lat, lon)
 
     # Move mouse to that position (centered around map midpoint)
-    pyautogui.moveTo(x_pixel + x_mid - x_len // 2, y_pixel + y_mid - y_len // 2, duration=1)
+    pyautogui.moveTo(x_pixel, y_pixel, duration=1)
     pyautogui.click()
-
-    # Plot the prediction on the map
-    print(torch.argmax(preds, dim=1).item())
+    time.sleep(1)
+    # Plot the prediction
     plotter.plot_predictions(preds)
+    # plotter.plot_embellished_predictions(preds)
 
 
 
