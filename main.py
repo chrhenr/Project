@@ -4,7 +4,6 @@ from matplotlib.colors import Normalize
 from s2sphere import CellId, LatLng
 import torch.nn as nn
 import torch
-from geopy.geocoders import Nominatim
 
 
 from torch.utils.data import DataLoader
