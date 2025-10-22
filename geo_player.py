@@ -36,8 +36,6 @@ class GeoGuesserPlayer:
 
 
 
-    
-
     def screenshots(self):
         img = ImageGrab.grab(bbox=(self.top_left_corner[0], self.top_left_corner[1], self.bottom_right_corner[0], self.bottom_right_corner[1]))
         img.save("screenshot.png")
@@ -49,7 +47,7 @@ class GeoGuesserPlayer:
     def center_map(self, x, y):
         pyautogui.moveTo(x, y, duration=1)
         time.sleep(0.5)
-        pyautogui.click()
+
 
     def close_screenshot_tool(self):
         pyautogui.moveTo(1878, 884, duration=0.5)
@@ -67,29 +65,6 @@ class GeoGuesserPlayer:
         y_mid = y_len // 2 + y1
 
         return x_len, y_len, x_mid, y_mid
-
-
-
-
-
-
-    # def from_latlon_to_pixel(self, lat, lon, x_len, y_len):
-    #     # Define the map's visible geographic bounds
-    #     lon_min, lon_max, lat_min, lat_max = self.coords
-
-    #     # Convert latitude values to radians
-    #     lat_rad = math.radians(lat)
-    #     lat_min_rad = math.radians(lat_min)
-    #     lat_max_rad = math.radians(lat_max)
-
-    #     # ---- X coordinate (linear scaling by longitude) ----
-    #     x = (lon - lon_min) / (lon_max - lon_min) * x_len
-
-    #     mercN = math.log(math.tan((math.pi/4)+(lat_rad/2)))
-        
-    #     y = (y_len/2) - mercN/(2*math.pi)*y_len
-
-    #     return int(x), int(y)
 
 
     def lat_to_mercator_y(self, lat: float) -> float:
@@ -153,12 +128,7 @@ def test_area():
     time.sleep(1)
     pyautogui.click()
 
-def player():
-    player = GeoGuesserPlayer()
-    helper = GeoGuesserHelper(recompute=False, vm=False)
-    plotter = MapPlotter(helper.df)
-    helper.prepare_data()
-
+def play_round(player: GeoGuesserPlayer, helper: GeoGuesserHelper):
     ##Start the geo guesser map interaction
     img = player.screenshots()
     time.sleep(1)
@@ -175,9 +145,27 @@ def player():
     # Move mouse to that position (centered around map midpoint)
     pyautogui.moveTo(x_pixel, y_pixel, duration=1)
     pyautogui.click()
+
     time.sleep(1)
+    pyautogui.moveTo(1257, 992, duration=0.5)
+    pyautogui.click()
+    time.sleep(2)
+    pyautogui.moveTo(953, 954, duration=0.5)
+    pyautogui.click()
+    time.sleep(1)
+
+def player():
+    player = GeoGuesserPlayer()
+    helper = GeoGuesserHelper(recompute=False, vm=False)
+    plotter = MapPlotter(helper.df)
+    helper.prepare_data()
+
+    for _ in range(5):
+        play_round(player, helper)
+    
+    
     # Plot the prediction
-    plotter.plot_predictions(preds)
+    # plotter.plot_predictions(preds)
     # plotter.plot_embellished_predictions(preds)
 
 

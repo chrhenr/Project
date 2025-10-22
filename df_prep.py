@@ -113,7 +113,7 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
 
 
 
-    LEVEL = 6  # justera för magnifikation
+    LEVEL = 5  # justera för magnifikation
     def latlon_to_s2(lat, lon, level):
             return CellId.from_lat_lng(LatLng.from_degrees(lat, lon)).parent(level)
     
