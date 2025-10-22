@@ -46,6 +46,7 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
 
 
     #### Läs in data från data_mapped och flytta de till streetview_jpg ####
+    countries_counter = {}
     mapped_dict = {"lat": [], "lon": [], "path": []}
     for i in range(len(json_files)):
         assert json_files[i].stem == img_files[i].stem, f"Filerna {json_files[i]} och {img_files[i]} matchar inte!"
@@ -56,6 +57,8 @@ def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bo
         mapped_dict["lat"].append(data['coordinates'][0])
         mapped_dict["lon"].append(data['coordinates'][1])
         mapped_dict["path"].append(str(f"{MAPPED_PATH}/{img_files[i].stem}.png"))
+        country = data.get('country', 'Unknown')
+        countries_counter[country] = countries_counter.get(country, 0) + 1
 
     df_mapped = pd.DataFrame(mapped_dict)
     # df_mapped_sampled = df_mapped.sample(10000, random_state=1)

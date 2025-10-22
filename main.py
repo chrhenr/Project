@@ -1,27 +1,20 @@
 
 from matplotlib.colors import Normalize
-import pandas as pd
-import numpy as np
 
-
-from s2sphere import CellId, LatLng, Cell, Angle
+from s2sphere import CellId, LatLng
 import torch.nn as nn
 import torch
-from torchvision import models
+from geopy.geocoders import Nominatim
 
-from random import randint, random
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, ToTensor, Compose, Resize
 from sklearn.model_selection import train_test_split
-from time import perf_counter
 
 
 from geoGuesserDataLoader import GeoGuesserDataset
-from map_plot import MapPlotter
 from df_prep import load_data
-from timer import run_with_timer
-from geo_network import GeoNetworkBaseline, Head, training_loop, model_ResNet50
+from geo_network import training_loop, model_ResNet50
 
 
 CITIES_PATH = "./cities"
@@ -44,7 +37,7 @@ class GeoGuesserHelper:
         self.streetview_path = STREETVIEW_PATH
         self.cities_path = CITIES_PATH
         self.mapped_path = MAPPED_PATH
-        self.save_path = "./geo_network_test.pth"
+        self.save_path = "./geo_network_23.pth"
         self.df = load_data(self.streetview_path, self.cities_path, self.mapped_path, recompute=recompute, vm=vm)
 
         self.df_img_and_labels = None
@@ -92,21 +85,9 @@ class GeoGuesserHelper:
 
         return preds
 
-    def geo_loss(self, pred_logits, true_idx, cell_to_latlon=None):
-        loss_fn = nn.CrossEntropyLoss()
-        # pred_probs = torch.softmax(pred_logits, dim=1)
-        
-        # pred_coords = torch.sum(pred_probs.unsqueeze(2) * cell_latlons, dim=1)
-        # dist = haversine_distance(pred_coords, true_coords)
-
-        # loss = loss_fn(pred_logits, true_idx) + 0.001*torch.mean(dist)
-        loss = loss_fn(pred_logits, true_idx)
-        return loss
-
 
     def train_model(self, model, train, val, save_path):
         """Train the GeoNetwork model."""
-        print(self.df_img_and_labels['cell_label'].value_counts())
         # Initialize model, optimizer, and loss function
         optimizer = torch.optim.Adam([
         {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
@@ -135,9 +116,9 @@ def main():
 
     helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
 
-    # model.eval()
-    # plotter = MapPlotter(helper.df)
-    # model()
+
+
+
 
 
 

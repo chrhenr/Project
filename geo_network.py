@@ -4,6 +4,7 @@ from torchvision import models
 
 
 
+
 class GeoNetworkBaseline(nn.Module):
     def __init__(self, img_size: int):
         super().__init__()
@@ -40,15 +41,15 @@ class Head(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(in_features, 512),
+            nn.Linear(in_features, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(1024, 512),
             nn.BatchNorm1d(512),
             nn.ReLU(),
             nn.Dropout(0.4),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Dropout(0.4),
-            nn.Linear(256, out_features)
+            nn.Linear(512, out_features)
         )
 
     def forward(self, x):
@@ -135,6 +136,7 @@ def train_epoch(
     return model, train_loss_batches, train_acc_batches
 
 
+
 def validate(model, loss_fn, val_loader, device):
     val_loss_cum = 0
     val_acc_cum = 0
@@ -151,3 +153,5 @@ def validate(model, loss_fn, val_loader, device):
             val_acc_cum += acc_batch_avg
 
     return val_loss_cum / len(val_loader), val_acc_cum / len(val_loader)
+
+
