@@ -23,8 +23,9 @@ class MapPlotter:
         return verts + [verts[0]]
 
     def plot_s2_grid(self, probabilities=None, image=None):
-        plt.imshow(plt.imread(image))
-        plt.show()
+        if image:
+            plt.imshow(plt.imread(image))
+            plt.show()
         
         """Plot the S2 grid cells and optionally color them based on probabilities."""
         plt.figure(figsize=(14, 7))
@@ -53,15 +54,18 @@ class MapPlotter:
 
         return "Plotting complete."
 
-    def plot_predictions(self, image_index, logits):
+    def plot_predictions(self, logits):
         """Plot the S2 grid with predicted probabilities for a given image index."""
         probabilities = torch.nn.functional.softmax(logits, dim=1)
-        image = self.df.iloc[image_index]['path']
-    
-        probabilities = probabilities*(probabilities > 0.01).float()
+        print(torch.argmax(logits, dim=1).item())
+
+        # probabilities = probabilities*(probabilities > 0.01).float()
         predicted = probabilities.detach().numpy()
     
         predicted = predicted[0]
+        print(f"predicted: {predicted}")
+        print(f"Predicted cell index: {np.argmax(predicted)}")
         predicted[np.argmax(predicted)] = 1.0  # Highlight the most probable cell
-        self.plot_s2_grid(predicted, image)
+        self.plot_s2_grid(predicted)
+
 
