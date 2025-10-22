@@ -28,7 +28,7 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 LEARNING_RATE = 1e-3
 NUM_EPOCHS = 10
 
@@ -39,77 +39,74 @@ transform = Compose([
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
+class GeoGuesserHelper:
+    def __init__(self, recompute, vm):
+        self.streetview_path = STREETVIEW_PATH
+        self.cities_path = CITIES_PATH
+        self.mapped_path = MAPPED_PATH
+        self.save_path = "./geo_network_test.pth"
+        self.df = load_data(self.streetview_path, self.cities_path, self.mapped_path, recompute=recompute, vm=vm)
+
+        self.df_img_and_labels = None
+        self.cell_to_idx = None
+        self.idx_to_cell = None
+
+    def prepare_data(self):
+        df = self.df.dropna(subset=["path"])  
+        self.df_img_and_labels = df[['path', 'cell_id']]
+        self.df_img_and_labels, self.cell_to_idx, self.idx_to_cell = encode_cells(self.df_img_and_labels)
+        print(f"Datamängd efter encoding: {len(self.df_img_and_labels)} bilder.")
+    
+
+    def distance_between_cells(self, pred_cell_id, true_cell_id):
+
+        pred_cell = CellId(pred_cell_id)
+        true_cell = CellId(true_cell_id)
+
+        pred_center = LatLng.from_point(pred_cell.to_lat_lng().to_point())
+        true_center = LatLng.from_point(true_cell.to_lat_lng().to_point())
+
+        distance = EARTH_RADIUS_KM*pred_center.get_distance(true_center).radians
+        return distance
+
+
+    def get_distance(self, prediction, label):
+
+        pred_cell_idx = torch.argmax(prediction, dim=1).item()
+        pred_cell_id = self.idx_to_cell[pred_cell_idx]
+        true_cell_id = label['cell_id']
+        distance = self.distance_between_cells(pred_cell_id, true_cell_id)
+
+        return distance
+
+
+    def test_single_image(self,model, img):
+        """Test the model on a single image and return predicted probabilities."""
+        model.eval()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        image = img.convert("RGB")
+        image = transform(image).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            preds = model(image)
+
+        return preds
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Läs in data
-    df = load_data(STREETVIEW_PATH, CITIES_PATH, MAPPED_PATH, recompute=False, vm=True)
-    df = df.dropna(subset=["path"])  
-
-    df_img_and_labels = df[['path', 'cell_id']]
-    df_img_and_labels, cell_to_idx, idx_to_cell = encode_cells(df_img_and_labels)
-    print(f"Datamängd efter encoding: {len(df_img_and_labels)} bilder.")
-
-    #get a few samples for testing
-    array = [randint(1, len(df_img_and_labels)) for i in range(10)]
-
-    df_test = pd.DataFrame(columns=['path', 'cell_id', 'cell_label'])
-    for i in range(len(array)):
-        df_test.loc[i] = df_img_and_labels.iloc[array[i]]
-        df_img_and_labels = df_img_and_labels.drop(i)
-
-    print(f"Datamängd efter sampling: {len(df_img_and_labels)} bilder.")
-
+    helper = GeoGuesserHelper(recompute=False, vm=True)
+    helper.prepare_data()
 
     # Skapa dataloaders
-    geo_dataloader_train, geo_dataloader_val = full_dataset(df_img_and_labels)
-    geo_dataloader_test = test_dataset(df_test)
-
-    save_path = "./geo_network_test.pth"
+    geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
     # Train the model
     model = model_ResNet50()
     model.to(device)
 
-    train_model(model, geo_dataloader_train, geo_dataloader_val, save_path)
+    train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
 
-    # Load the trained model
-    model.load_state_dict(torch.load(save_path))
-    model.eval()
-
-
-    plotter = MapPlotter(df)
-
-    # Predict and plot on test dataset
-    pred_list = test_and_plot(model, geo_dataloader_test, plotter, array)
-
-    # Calculate average distance
-    distance = 0.0
-    for i in range(len(pred_list)):
-        pred_cell_idx = torch.argmax(pred_list[i], dim=1).item()
-        pred_cell_id = idx_to_cell[pred_cell_idx]
-        true_cell_id = df_test.iloc[i]['cell_id']
-        distance += get_distance(pred_cell_id, true_cell_id)
-
-    print(f"Average distance for test samples: {distance / len(pred_list):.2f} km")
-
-
-def test_and_plot(model, dataloader, plotter, array):
-    """Test the model on the test dataset and plot predictions."""
-    model.eval()
-    pred_list = []
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    with torch.no_grad():
-        for index, (image, labels) in enumerate(dataloader):
-            image = image.to(device)
-            preds = model(image)
-            pred_list.append(preds)
-            if index % 10 == 0:
-                plotter.plot_predictions(array[index], preds)
-
-    return pred_list
 
 
 def train_model(model, train, val, save_path):
@@ -128,17 +125,6 @@ def train_model(model, train, val, save_path):
         num_epochs=NUM_EPOCHS, print_every=2, save_path=save_path
     )
 
-
-def get_distance(prediction, label):
-    """Calculate the distance in kilometers between predicted and true cell."""
-    pred_cell = CellId(prediction)
-    true_cell = CellId(label)
-
-    pred_center = LatLng.from_point(pred_cell.to_lat_lng().to_point())
-    true_center = LatLng.from_point(true_cell.to_lat_lng().to_point())
-
-    distance = EARTH_RADIUS_KM*pred_center.get_distance(true_center).radians
-    return distance
 
 
 def very_small_dataset(df_img_labels):
