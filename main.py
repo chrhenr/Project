@@ -55,7 +55,6 @@ class GeoGuesserHelper:
         df = self.df.dropna(subset=["path"])  
         self.df_img_and_labels = df[['path', 'cell_id']]
         self.df_img_and_labels, self.cell_to_idx, self.idx_to_cell = encode_cells(self.df_img_and_labels)
-        print(f"Datamängd efter encoding: {len(self.df_img_and_labels)} bilder.")
     
 
     def distance_between_cells(self, pred_cell_id, true_cell_id):
@@ -107,6 +106,7 @@ class GeoGuesserHelper:
 
     def train_model(self, model, train, val, save_path):
         """Train the GeoNetwork model."""
+        print(self.df_img_and_labels['cell_label'].value_counts())
         # Initialize model, optimizer, and loss function
         optimizer = torch.optim.Adam([
         {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
@@ -134,6 +134,10 @@ def main():
     model.to(device)
 
     helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
+
+    # model.eval()
+    # plotter = MapPlotter(helper.df)
+    # model()
 
 
 

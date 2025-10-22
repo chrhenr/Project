@@ -76,11 +76,6 @@ class GeoGuesserPlayer:
         frac_x = (lon - self.kodiak_lon) / (self.hobart_lon - self.kodiak_lon)
         x = frac_x * (self.hobart_x - self.kodiak_x) + self.kodiak_x
 
-
-        print(f"frac_x: {frac_x}")
-        print(f"lon - self.kodiak_lon: {lon - self.kodiak_lon}")
-        print(f"self.hobart_lon - self.kodiak_lon: {self.hobart_lon - self.kodiak_lon}")
-        print(f"x: {frac_x * (self.hobart_x - self.kodiak_x)}")
         # --- Latitude to Y (mercator scale) ---
         merc_kodiak = self.lat_to_mercator_y(self.kodiak_lat)
         merc_hobart = self.lat_to_mercator_y(self.hobart_lat)
@@ -89,7 +84,6 @@ class GeoGuesserPlayer:
         frac_y = (merc_target - merc_kodiak) / (merc_hobart - merc_kodiak)
         y = frac_y * (self.hobart_y - self.kodiak_y) + self.kodiak_y
 
-        print(f"frac_y: {frac_y}")
 
         return round(x), round(y)
         
@@ -128,7 +122,7 @@ def test_area():
     time.sleep(1)
     pyautogui.click()
 
-def play_round(player: GeoGuesserPlayer, helper: GeoGuesserHelper):
+def play_round(player: GeoGuesserPlayer, helper: GeoGuesserHelper, plotter: MapPlotter):
     ##Start the geo guesser map interaction
     img = player.screenshots()
     time.sleep(1)
@@ -154,6 +148,10 @@ def play_round(player: GeoGuesserPlayer, helper: GeoGuesserHelper):
     pyautogui.click()
     time.sleep(1)
 
+    plotter.plot_predictions(preds)
+
+    
+
 def player():
     player = GeoGuesserPlayer()
     helper = GeoGuesserHelper(recompute=False, vm=False)
@@ -161,11 +159,10 @@ def player():
     helper.prepare_data()
 
     for _ in range(5):
-        play_round(player, helper)
-    
+        play_round(player, helper, plotter)
+
     
     # Plot the prediction
-    # plotter.plot_predictions(preds)
     # plotter.plot_embellished_predictions(preds)
 
 

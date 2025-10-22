@@ -58,6 +58,7 @@ class Head(nn.Module):
 def model_ResNet50() -> nn.Module:
     """Create a GeoNetwork model based on ResNet50."""
     model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+    output_layers = 1129
     for param in model.parameters():
         param.requires_grad = False
 
@@ -68,7 +69,7 @@ def model_ResNet50() -> nn.Module:
         param.requires_grad = True
 
     num_ftrs = model.fc.in_features
-    model.fc = Head(num_ftrs, 3120)  # Adjust the final layer for 3120 classes
+    model.fc = Head(num_ftrs, output_layers)  # Adjust the final layer for 1129 classes
     return model
 
 
