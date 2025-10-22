@@ -164,7 +164,7 @@ def test_dataset(df_img_labels):
     return geo_dataloader_test    
 
 
-def full_dataset(df_img_labels, num_workers=8):
+def full_dataset(df_img_labels, num_workers=4):
     """Create full dataset dataloaders."""
     df_train, df_val = train_test_split(df_img_labels, test_size=0.2)
 
