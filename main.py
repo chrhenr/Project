@@ -28,7 +28,7 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 LEARNING_RATE = 1e-3
 NUM_EPOCHS = 10
 
@@ -93,6 +93,34 @@ class GeoGuesserHelper:
 
         return preds
 
+    def geo_loss(self, pred_logits, true_idx, cell_to_latlon=None):
+        loss_fn = nn.CrossEntropyLoss()
+        # pred_probs = torch.softmax(pred_logits, dim=1)
+        
+        # pred_coords = torch.sum(pred_probs.unsqueeze(2) * cell_latlons, dim=1)
+        # dist = haversine_distance(pred_coords, true_coords)
+
+        # loss = loss_fn(pred_logits, true_idx) + 0.001*torch.mean(dist)
+        loss = loss_fn(pred_logits, true_idx)
+        return loss
+
+
+    def train_model(self, model, train, val, save_path):
+        """Train the GeoNetwork model."""
+        # Initialize model, optimizer, and loss function
+        optimizer = torch.optim.Adam([
+        {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
+        {'params': model.layer4.parameters(), 'lr': 1e-5},
+        {'params': model.layer3.parameters(), 'lr': 1e-5},
+        ], weight_decay=1e-5)
+        loss_fn = nn.CrossEntropyLoss()
+
+        model, train_losses, train_accs, val_losses, val_accs = training_loop(
+            model, optimizer, loss_fn, train, val,
+            num_epochs=NUM_EPOCHS, print_every=2, save_path=save_path
+        )
+
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     helper = GeoGuesserHelper(recompute=False, vm=True)
@@ -105,25 +133,7 @@ def main():
     model = model_ResNet50()
     model.to(device)
 
-    train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
-
-
-
-def train_model(model, train, val, save_path):
-    """Train the GeoNetwork model."""
-    # Initialize model, optimizer, and loss function
-    optimizer = torch.optim.Adam([
-    {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
-    {'params': model.layer4.parameters(), 'lr': 1e-4},
-    {'params': model.layer3.parameters(), 'lr': 1e-4},
-    ], weight_decay=1e-5)
-    loss_fn = nn.CrossEntropyLoss()
-
-    # Start training
-    model, train_losses, train_accs, val_losses, val_accs = training_loop(
-        model, optimizer, loss_fn, train, val,
-        num_epochs=NUM_EPOCHS, print_every=2, save_path=save_path
-    )
+    helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
 
 
 

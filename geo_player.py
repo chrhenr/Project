@@ -57,34 +57,40 @@ class GeoGuesserPlayer:
 
 
 
-    def from_latlon_to_pixel(self, lat, lon, x_len, y_len):
-        # Define the map's visible geographic bounds
-        lon_min, lon_max, lat_min, lat_max = self.coords
+    # def from_latlon_to_pixel(self, lat, lon, x_len, y_len):
+    #     # Define the map's visible geographic bounds
+    #     lon_min, lon_max, lat_min, lat_max = self.coords
 
-        # Convert latitude values to radians
-        lat_rad = math.radians(lat)
-        lat_min_rad = math.radians(lat_min)
-        lat_max_rad = math.radians(lat_max)
+    #     # Convert latitude values to radians
+    #     lat_rad = math.radians(lat)
+    #     lat_min_rad = math.radians(lat_min)
+    #     lat_max_rad = math.radians(lat_max)
 
-        # ---- X coordinate (linear scaling by longitude) ----
-        x = (lon - lon_min) / (lon_max - lon_min) * x_len
+    #     # ---- X coordinate (linear scaling by longitude) ----
+    #     x = (lon - lon_min) / (lon_max - lon_min) * x_len
 
-        mercN = math.log(math.tan((math.pi/4)+(lat_rad/2)))
+    #     mercN = math.log(math.tan((math.pi/4)+(lat_rad/2)))
         
-        y     = (y_len/2)-(x_len*mercN/(2*math.pi))
+    #     y = (y_len/2) - mercN/(2*math.pi)*y_len
 
-        # ---- Y coordinate (Mercator projection) ----
-        # def mercator_y(lat_r):
-        #     return math.log(math.tan(lat_r / 2 + math.pi / 4))
+    #     return int(x), int(y)
+    def from_latlon_to_pixel(self, lat, lon, x_len, y_len):
+        # Web Mercator valid range
+        lat = max(min(lat, 85.05113), -85.05113)
 
-        # # Convert latitude to projected coordinate
-        # y = (mercator_y(lat_max_rad) - mercator_y(lat_rad)) / \
-        #     (mercator_y(lat_max_rad) - mercator_y(lat_min_rad)) * y_len
+        # ---- Normalize longitude to [0, 1]
+        x_norm = (lon + 180.0) / 360.0
 
-        # Return integer pixel offsets (top-left origin)
-        return int(x), int(y)
+        # ---- Normalize latitude using Web Mercator formula
+        lat_rad = math.radians(lat)
+        y_norm = (1.0 - math.log(math.tan(lat_rad) + 1 / math.cos(lat_rad)) / math.pi) / 2.0
 
-    
+        # ---- Scale to pixel space
+        x = x_norm * x_len
+        y = y_norm * y_len
+
+        return x, y
+        
 
 
     def predict_image(self, img, helper: GeoGuesserHelper):
@@ -109,7 +115,7 @@ class GeoGuesserPlayer:
         print(torch.argmax(preds, dim=1).item())
         print(f"Predicted coordinates: ({lat}, {lon})")
 
-        lat, lon = 45.48279518257026, 9.187580740586846  # Milan Predicted: 44.44359112914816, 8.94298084919457 ->0.98
+        # lat, lon = 45.48279518257026, 9.187580740586846  # Milan Predicted: 44.44359112914816, 8.94298084919457 ->0.98
         # lat, lon = 57.72289241873738, 11.957686233278697  # Gothenburg  54.078502575921, 11.79937720996049 -> 0.94
         # lat, lon = 67.86193544963959, 20.232635563787753 # Kiruna 62.69596198522933, 19.940452179979857 -> 0.91
 

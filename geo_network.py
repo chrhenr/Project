@@ -120,7 +120,6 @@ def train_epoch(
         acc_batch_avg = (preds == labels).float().mean().item()
         train_acc_batches.append(acc_batch_avg)
 
-
         if print_every is not None and batch_index % print_every == 0:
             val_loss, val_acc = validate(model, loss_fn, val_loader, device)
             model.train()
@@ -151,5 +150,3 @@ def validate(model, loss_fn, val_loader, device):
             val_acc_cum += acc_batch_avg
 
     return val_loss_cum / len(val_loader), val_acc_cum / len(val_loader)
-
-
