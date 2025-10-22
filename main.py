@@ -164,15 +164,15 @@ def test_dataset(df_img_labels):
     return geo_dataloader_test    
 
 
-def full_dataset(df_img_labels):
+def full_dataset(df_img_labels, num_workers=8):
     """Create full dataset dataloaders."""
     df_train, df_val = train_test_split(df_img_labels, test_size=0.2)
 
     dataset_train = GeoGuesserDataset(df_train, transform=transform)
     dataset_val = GeoGuesserDataset(df_val, transform=transform)
 
-    geo_dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-    geo_dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
+    geo_dataloader_train = DataLoader(dataset_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=num_workers)
+    geo_dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=False, num_workers=num_workers)
 
     return geo_dataloader_train, geo_dataloader_val
 
