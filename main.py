@@ -127,6 +127,7 @@ def main():
     helper.prepare_data()
 
     # Skapa dataloaders
+    # geo_dataloader_train, geo_dataloader_val = very_small_dataset(helper.df_img_and_labels)
     geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
     # Train the model
