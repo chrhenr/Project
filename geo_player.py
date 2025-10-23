@@ -11,6 +11,8 @@ from map_plot import MapPlotter
 from main import GeoGuesserHelper
 import s2sphere
 
+from pytesseract import pytesseract as pyt
+
 
 class GeoGuesserPlayer:
     def __init__(self):
@@ -18,6 +20,8 @@ class GeoGuesserPlayer:
         self.bottom_right_corner = (1918, 1016)
         self.small_map = (1660, 841)
         self.middle_map = (1287, 568)
+        self.next_button = (953, 954,)
+        self.guess_button = (1257, 992)
 
 
         self.mapcoords = (641, 208, 1886, 962)  # x1, y1, x2, y2
@@ -48,10 +52,22 @@ class GeoGuesserPlayer:
         pyautogui.moveTo(x, y, duration=1)
         time.sleep(0.5)
 
-
     def close_screenshot_tool(self):
         pyautogui.moveTo(1878, 884, duration=0.5)
         pyautogui.click()
+
+    def next_round(self):
+        pyautogui.moveTo(self.next_button, duration=0.5)
+        pyautogui.click()
+        time.sleep(2)
+
+    def guess(self, x_pixel, y_pixel):
+        pyautogui.moveTo(x_pixel, y_pixel, duration=1)
+        pyautogui.click()
+        time.sleep(1)
+        pyautogui.moveTo(self.guess_button, duration=0.5)
+        pyautogui.click()
+        time.sleep(2)
 
 
     def geo_guesser_map(self):
@@ -111,45 +127,37 @@ class GeoGuesserPlayer:
         return lat, lon, preds
 
 
-def test_area():
-    player = GeoGuesserPlayer()
+    def test_area():
+        player = GeoGuesserPlayer()
 
-    pyautogui.moveTo(player.kodiak_x, player.kodiak_y, duration=1)
-    time.sleep(1)
-    pyautogui.click()
-    time.sleep(1)
-    pyautogui.moveTo(player.hobart_x, player.hobart_y, duration=1)
-    time.sleep(1)
-    pyautogui.click()
+        pyautogui.moveTo(player.kodiak_x, player.kodiak_y, duration=1)
+        time.sleep(1)
+        pyautogui.click()
+        time.sleep(1)
+        pyautogui.moveTo(player.hobart_x, player.hobart_y, duration=1)
+        time.sleep(1)
+        pyautogui.click()
 
-def play_round(player: GeoGuesserPlayer, helper: GeoGuesserHelper, plotter: MapPlotter):
-    ##Start the geo guesser map interaction
-    img = player.screenshots()
-    time.sleep(1)
-    player.move_to_map()
-    time.sleep(1)
-    x_mid, y_mid, _, _ = player.geo_guesser_map()
-    player.center_map(x_mid, y_mid)
-    time.sleep(1)
+    def play_single_round(self, helper: GeoGuesserHelper, plotter: MapPlotter):
+        ##Start the geo guesser map interaction
+        img = self.screenshots()
+        time.sleep(1)
+        self.move_to_map()
+        time.sleep(1)
+        x_mid, y_mid, _, _ = self.geo_guesser_map()
+        self.center_map(x_mid, y_mid)
+        time.sleep(1)
 
-    ## Make prediction
-    lat, lon, preds = player.predict_image(img, helper)
-    x_pixel, y_pixel = player.from_latlon_to_pixel(lat, lon)
+        ## Make prediction
+        lat, lon, preds = self.predict_image(img, helper)
+        x_pixel, y_pixel = self.from_latlon_to_pixel(lat, lon)
 
-    # Move mouse to that position (centered around map midpoint)
-    pyautogui.moveTo(x_pixel, y_pixel, duration=1)
-    pyautogui.click()
+        self.guess(x_pixel, y_pixel)
 
-    time.sleep(1)
-    pyautogui.moveTo(1257, 992, duration=0.5)
-    pyautogui.click()
-    time.sleep(2)
-    pyautogui.moveTo(953, 954, duration=0.5)
-    pyautogui.click()
-    time.sleep(1)
+        self.next_round()
 
-    plotter.plot_predictions(preds)
-
+        # plotter.plot_predictions(preds)
+        # plotter.plot_embellished_predictions(preds)
     
 
 def player():
@@ -159,14 +167,19 @@ def player():
     helper.prepare_data()
 
     for _ in range(5):
-        play_round(player, helper, plotter)
+        player.play_single_round(helper, plotter)
 
     
     # Plot the prediction
-    # plotter.plot_embellished_predictions(preds)
 
 
 
+#Geoguesser: 6407, 7558, 8664, 11954, 8674
+#Vi: 7258, 1382, 9671, 10801, 14408
+avg_vi = (7258 + 1382 + 9671 + 10801 + 14408) / 5
+print("Our average score:", avg_vi)
+avg_geo = (6407 + 7558 + 8664 + 11954 + 8674) / 5
+print("GeoGuessr average score:", avg_geo)
 
 if __name__ == "__main__":
     player()

@@ -22,37 +22,46 @@ class MapPlotter:
             verts.append((ll.lat().degrees, ll.lng().degrees))
         return verts + [verts[0]]
 
-    def plot_s2_grid(self, probabilities=None, image=None):
-        if image:
-            plt.imshow(plt.imread(image))
-            plt.show()
-        
-        """Plot the S2 grid cells and optionally color them based on probabilities."""
-        plt.figure(figsize=(14, 7))
+    def plot_s2_grid(self, probabilities=None):
+        # Load background image
 
-        # Rita punkter (sampla om datasetet är jättestort)
-        N_SAMPLE = min(len(self.df), 50000)  # höj/sänk vid behov
+        # im = plt.imread("mapOption.png")
+
+        fig, ax = plt.subplots(figsize=(14, 7))
+        # ax.set_aspect("equal", adjustable="box")
+
+        # Sample points for plotting
+        N_SAMPLE = min(len(self.df), 50000)
         sample = self.df.sample(N_SAMPLE, random_state=0) if len(self.df) > N_SAMPLE else self.df
-        plt.scatter(sample["lon"], sample["lat"], s=1, alpha=0.7)
+        ax.scatter(sample["lon"], sample["lat"], s=1, alpha=0.7)
 
-        # Rita cellernas polygoner (endast celler som faktiskt har data)
+        # Draw polygons for each S2 cell
         for index, cid in enumerate(self.cells):
             poly = self.cell_boundary(cid)
-
             lats = [p[0] for p in poly]
             lons = [p[1] for p in poly]
-            polygon = Polygon(list(zip(lons, lats)), closed=True, linewidth=0.5, edgecolor=(0, 0, 0, 1.0), facecolor=(1, 0, 0, probabilities[index] if probabilities is not None else 0.0))
-            plt.gca().add_patch(polygon)
-        
+            polygon = Polygon(
+                list(zip(lons, lats)),
+                closed=True,
+                linewidth=0.5,
+                edgecolor=(0, 0, 0, 0.5),
+                facecolor=(1, 0, 0, probabilities[index] if probabilities is not None else 0.0)
+            )
+            ax.add_patch(polygon)
 
-        plt.title(f"S2 world grid at level={6} with ALL image points")
-        plt.xlabel("Longitude"); plt.ylabel("Latitude")
-        plt.xlim(-180, 180); plt.ylim(-90, 90)
-        plt.gca().set_aspect("equal", adjustable="box")
+        # Set geographic extent and add map background
+        ax.imshow(im, extent=[-180, 180, -90, 90], origin="upper")
+
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(-90, 90)
+        ax.set_xlabel("Longitude")
+        ax.set_ylabel("Latitude")
+        ax.set_title(f"S2 world grid at level={6} with ALL image points")
+
         plt.tight_layout()
         plt.show()
-
         return "Plotting complete."
+
 
     def plot_predictions(self, logits):
         """Plot the S2 grid with predicted probabilities for a given image index."""

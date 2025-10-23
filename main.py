@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from geoGuesserDataLoader import GeoGuesserDataset
 from df_prep import load_data
 from geo_network import training_loop, model_ResNet50
+from map_plot import MapPlotter
 
 
 CITIES_PATH = "./cities"
@@ -36,7 +37,7 @@ class GeoGuesserHelper:
         self.streetview_path = STREETVIEW_PATH
         self.cities_path = CITIES_PATH
         self.mapped_path = MAPPED_PATH
-        self.save_path = "./geo_network_23.pth"
+        self.save_path = "./geo_network_test.pth"
         self.df = load_data(self.streetview_path, self.cities_path, self.mapped_path, recompute=recompute, vm=vm)
 
         self.df_img_and_labels = None
@@ -65,7 +66,7 @@ class GeoGuesserHelper:
 
         pred_cell_idx = torch.argmax(prediction, dim=1).item()
         pred_cell_id = self.idx_to_cell[pred_cell_idx]
-        true_cell_id = label['cell_id']
+        true_cell_id = self.idx_to_cell[label]
         distance = self.distance_between_cells(pred_cell_id, true_cell_id)
 
         return distance
@@ -104,8 +105,10 @@ class GeoGuesserHelper:
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     helper = GeoGuesserHelper(recompute=False, vm=True)
+    plotter = MapPlotter(helper.df)
     helper.prepare_data()
 
+    plotter.plot_s2_grid()
     # Skapa dataloaders
     geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
@@ -117,8 +120,43 @@ def main():
 
 
 
+    # # Test the model
+    # model = model_ResNet50()
+    # model.load_state_dict(torch.load(helper.save_path, map_location=torch.device('cpu')))
+    # model.to(device)
+
+    # geo_dataloader_test = test_dataset(helper.df_img_and_labels)
+
+    # test(model, nn.CrossEntropyLoss(), geo_dataloader_val, device, helper)
 
 
+def test(model, loss_fn, test_loader, device, helper: GeoGuesserHelper):
+
+    model.eval()
+    with torch.no_grad():
+        avg_distance = 0.0
+        test_acc_cum = 0.0
+        test_loss_cum = 0.0
+
+        for x, y in test_loader:
+            inputs, labels = x.to(device), y.to(device)
+            z = model.forward(inputs)
+
+            batch_loss = loss_fn(z, labels)
+            test_loss_cum += batch_loss.item()
+            preds = torch.argmax(z, dim=1)
+            acc_batch_avg = (preds == labels).float().mean().item()
+            test_acc_cum += acc_batch_avg
+            # # Compute and print the distance
+            # for i in range(len(labels)):
+            #     avg_distance += helper.get_distance(preds, labels[i].item())
+            # tot_avg_distance = avg_distance/len(labels)
+
+        # print(f"Distance: {tot_avg_distance:.2f} km")
+        print(f"Test Loss: {test_loss_cum/len(test_loader):.4f}")
+        print(f"Test Accuracy: {test_acc_cum/len(test_loader):.4f}")
+
+    return
 
 
 def very_small_dataset(df_img_labels):
@@ -151,11 +189,14 @@ def small_dataset(df_img_labels):
     return geo_dataloader_train, geo_dataloader_val
 
 def test_dataset(df_img_labels):
-    """Create a test dataset."""
-    dataset_test = GeoGuesserDataset(df_img_labels, transform=transform)
-    geo_dataloader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=4)
+    """Create a small dataset for quick testing."""
+    smaller_df = df_img_labels.sample(n=512, random_state=42)
 
-    return geo_dataloader_test    
+    dataset_test = GeoGuesserDataset(smaller_df, transform=transform)
+
+    geo_dataloader_test = DataLoader(dataset_test, batch_size=32, shuffle=False, num_workers=4)
+
+    return geo_dataloader_test
 
 
 def full_dataset(df_img_labels):
@@ -169,7 +210,6 @@ def full_dataset(df_img_labels):
     geo_dataloader_val = DataLoader(dataset_val, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
     return geo_dataloader_train, geo_dataloader_val
-
 
 
 def encode_cells(df):
