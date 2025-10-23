@@ -23,9 +23,44 @@ class MapPlotter:
         return verts + [verts[0]]
 
     def plot_s2_grid(self, probabilities=None):
+
+
+        plt.figure(figsize=(14, 7))
+
+        # Sample points for plotting
+        N_SAMPLE = min(len(self.df), 50000)
+        sample = self.df.sample(N_SAMPLE, random_state=0) if len(self.df) > N_SAMPLE else self.df
+        plt.scatter(sample["lon"], sample["lat"], s=1, alpha=0.7)
+
+        # Draw polygons for each S2 cell
+        for index, cid in enumerate(self.cells):
+            poly = self.cell_boundary(cid)
+            lats = [p[0] for p in poly]
+            lons = [p[1] for p in poly]
+            polygon = Polygon(
+                list(zip(lons, lats)),
+                closed=True,
+                linewidth=0.5,
+                edgecolor=(0, 0, 0, 0.5),
+                facecolor=(1, 0, 0, probabilities[index] if probabilities is not None else 0.0)
+            )
+            plt.gca().add_patch(polygon)
+
+        plt.xlim(-180, 180)
+        plt.ylim(-90, 90)
+        plt.xlabel("Longitude")
+        plt.ylabel("Latitude")
+        plt.title(f"S2 world grid at level={5}")
+
+        plt.tight_layout()
+        plt.show()
+        return "Plotting complete."
+
+
+    def plot_s2_grid_with_background(self, probabilities=None):
         # Load background image
 
-        # im = plt.imread("mapOption.png")
+        im = plt.imread("mapOption.png")
 
         fig, ax = plt.subplots(figsize=(14, 7))
         # ax.set_aspect("equal", adjustable="box")
@@ -56,7 +91,7 @@ class MapPlotter:
         ax.set_ylim(-90, 90)
         ax.set_xlabel("Longitude")
         ax.set_ylabel("Latitude")
-        ax.set_title(f"S2 world grid at level={6} with ALL image points")
+        ax.set_title(f"S2 world grid at level={5}")
 
         plt.tight_layout()
         plt.show()
@@ -67,8 +102,6 @@ class MapPlotter:
         """Plot the S2 grid with predicted probabilities for a given image index."""
         probabilities = torch.nn.functional.softmax(logits, dim=1)
 
-
-        # probabilities = probabilities*(probabilities > 0.01).float()
         predicted = probabilities.detach().numpy()
     
         predicted = predicted[0]
@@ -84,10 +117,10 @@ class MapPlotter:
         
             predicted = predicted[0]
 
-            predicted = predicted*1000 
-            predicted[np.argmax(predicted)] = 1.0  # Highlight the most probable cell
+            while np.max(predicted) < 0.8:
+                predicted = predicted * 1.1
 
 
-            # Load and display a background map image
-            # map_image_path = "world_map.png"  # Path to your world map image
+            # predicted[np.argmax(predicted)] = 1.0  # Highlight the most probable cell
+
             self.plot_s2_grid(predicted)

@@ -158,6 +158,7 @@ class GeoGuesserPlayer:
 
         # plotter.plot_predictions(preds)
         # plotter.plot_embellished_predictions(preds)
+        
     
 
 def player():
@@ -174,10 +175,12 @@ def player():
 
 
 
-#Geoguesser: 6407, 7558, 8664, 11954, 8674
+#Geoguesser: 6407, 7558, 8664, 11954, 8674, 12698, 10577, 8125
+
 #Vi: 7258, 1382, 9671, 10801, 14408
 avg_vi = (7258 + 1382 + 9671 + 10801 + 14408) / 5
 print("Our average score:", avg_vi)
+
 avg_geo = (6407 + 7558 + 8664 + 11954 + 8674) / 5
 print("GeoGuessr average score:", avg_geo)
 
