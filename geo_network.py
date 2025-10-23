@@ -41,38 +41,47 @@ class Head(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(in_features, 512),
-            nn.BatchNorm1d(512),
+            nn.Linear(in_features, 1024),
+            nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
-            nn.Linear(512, out_features)
+            nn.Dropout(0.3),
+            nn.Linear(1024, out_features)
         )
 
     def forward(self, x):
         return self.net(x)
+    
 
+def unfreeze_last_layer(model):
+    for name, param in model.named_parameters():
+        if "layer4" in name or "fc" in name:
+            param.requires_grad = True
 
 def model_ResNet50(num_classes=1129):
-
-    # Load base ResNet50
+    # Load base ResNet50 (no pretrained weights yet)
     model = models.resnet50(weights=None)
-
-    # Replace FC for your output classes BEFORE loading checkpoint
-    num_ftrs = model.fc.in_features
-    model.fc = Head(num_ftrs, num_classes)
 
     # Download pretrained weights from MIT Places
     checkpoint_url = 'http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar'
     checkpoint = torch.hub.load_state_dict_from_url(checkpoint_url, map_location='cpu')
-
-    # Clean state_dict (remove 'module.' prefix)
     state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
 
-    # Remove final fully-connected weights since the shape won't match
+    # Remove the FC weights (they don’t match your head)
     state_dict.pop('fc.weight', None)
     state_dict.pop('fc.bias', None)
 
-    # Load pretrained weights (ignoring the fc layer)
+    # Load pretrained weights into the backbone
     model.load_state_dict(state_dict, strict=False)
+
+    for name, param in model.named_parameters():
+        if "fc" not in name:  # Only keep final head trainable
+            param.requires_grad = False
+
+    # Replace FC layer with your custom head
+    num_ftrs = model.fc.in_features
+    model.fc = Head(num_ftrs, num_classes)
+
+    print(sum(p.requires_grad for p in model.parameters()))
 
     return model
 
@@ -103,6 +112,12 @@ def training_loop(
         val_losses.append(val_loss)
         val_accs.append(val_acc)
         torch.save(model.state_dict(), save_path)
+        if epoch == 2:
+            unfreeze_last_layer(model)
+            optimizer = torch.optim.Adam(
+                filter(lambda p: p.requires_grad, model.parameters()), lr=1e-5, weight_decay=1e-5
+            )
+        
     return model, train_losses, train_accs, val_losses, val_accs
 
 

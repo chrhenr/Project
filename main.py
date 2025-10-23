@@ -21,13 +21,13 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 LEARNING_RATE = 1e-3
 NUM_EPOCHS = 10
 
 
 transform = Compose([
-    Resize((168, 168)),
+    Resize((224, 224)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
@@ -89,11 +89,8 @@ class GeoGuesserHelper:
     def train_model(self, model, train, val, save_path):
         """Train the GeoNetwork model."""
         # Initialize model, optimizer, and loss function
-        optimizer = torch.optim.Adam([
-        {'params': model.fc.parameters(), 'lr': LEARNING_RATE},
-        {'params': model.layer4.parameters(), 'lr': 1e-4},
-        {'params': model.layer3.parameters(), 'lr': 1e-4},
-        ], weight_decay=1e-5)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE, weight_decay=1e-5)
+
         loss_fn = nn.CrossEntropyLoss()
 
         model, train_losses, train_accs, val_losses, val_accs = training_loop(
