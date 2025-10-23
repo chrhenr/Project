@@ -23,7 +23,7 @@ MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
 BATCH_SIZE = 1024
 LEARNING_RATE = 1e-3
-NUM_EPOCHS = 20
+NUM_EPOCHS = 10
 
 
 transform = Compose([
@@ -108,7 +108,6 @@ def main():
     plotter = MapPlotter(helper.df)
     helper.prepare_data()
 
-    plotter.plot_s2_grid()
     # Skapa dataloaders
     geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
@@ -119,9 +118,9 @@ def main():
     helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
     
     # Test the model
-    model = model_ResNet50()
-    model.load_state_dict(torch.load(helper.save_path, map_location=torch.device('cpu')))
-    model.to(device)
+    # model = model_ResNet50()
+    # model.load_state_dict(torch.load(helper.save_path, map_location=torch.device('cpu')))
+    # model.to(device)
 
     geo_dataloader_test = test_dataset(helper.df_img_and_labels)
 

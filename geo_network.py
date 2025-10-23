@@ -51,22 +51,31 @@ class Head(nn.Module):
         return self.net(x)
 
 
-def model_ResNet50() -> nn.Module:
-    """Create a GeoNetwork model based on ResNet50."""
-    model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
-    output_layers = 1129
-    for param in model.parameters():
-        param.requires_grad = False
+def model_ResNet50(num_classes=1129):
 
-    for param in model.layer3.parameters():
-        param.requires_grad = True
-        
-    for param in model.layer4.parameters():
-        param.requires_grad = True
+    # Load base ResNet50
+    model = models.resnet50(weights=None)
 
+    # Replace FC for your output classes BEFORE loading checkpoint
     num_ftrs = model.fc.in_features
-    model.fc = Head(num_ftrs, output_layers)  # Adjust the final layer for 1129 classes
+    model.fc = Head(num_ftrs, num_classes)
+
+    # Download pretrained weights from MIT Places
+    checkpoint_url = 'http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar'
+    checkpoint = torch.hub.load_state_dict_from_url(checkpoint_url, map_location='cpu')
+
+    # Clean state_dict (remove 'module.' prefix)
+    state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
+
+    # Remove final fully-connected weights since the shape won't match
+    state_dict.pop('fc.weight', None)
+    state_dict.pop('fc.bias', None)
+
+    # Load pretrained weights (ignoring the fc layer)
+    model.load_state_dict(state_dict, strict=False)
+
     return model
+
 
 
 def training_loop(
