@@ -21,13 +21,13 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
-BATCH_SIZE = 512
+BATCH_SIZE = 1024
 LEARNING_RATE = 1e-3
-NUM_EPOCHS = 10
+NUM_EPOCHS = 20
 
 
 transform = Compose([
-    Resize((224, 224)),
+    Resize((168, 168)),
     ToTensor(),
     Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
