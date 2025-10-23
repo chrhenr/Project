@@ -113,10 +113,10 @@ def main():
     geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
     # Train the model
-    # model = model_ResNet50()
-    # model.to(device)
+    model = model_ResNet50()
+    model.to(device)
 
-    # helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
+    helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
     
     # Test the model
     model = model_ResNet50()
