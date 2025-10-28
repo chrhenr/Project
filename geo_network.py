@@ -52,6 +52,99 @@ class Head(nn.Module):
         return self.net(x)
     
 
+
+class MBConv(nn.Module):
+    def __init__(self, in_ch, out_ch, expand_ratio=6, se_ratio=0.25, stride=1):
+        super().__init__()
+        hidden_dim = in_ch * expand_ratio
+        self.use_res_connect = (stride == 1 and in_ch == out_ch)
+
+        self.expand = nn.Conv2d(in_ch, hidden_dim, 1, bias=False) if expand_ratio != 1 else None
+        self.bn0 = nn.BatchNorm2d(hidden_dim) if expand_ratio != 1 else None
+
+        self.dwconv = nn.Conv2d(hidden_dim, hidden_dim, 3, stride=stride,
+                                padding=1, groups=hidden_dim, bias=False)
+        self.bn1 = nn.BatchNorm2d(hidden_dim)
+
+        # --- Squeeze and Excitation ---
+        se_hidden = max(1, int(in_ch * se_ratio))
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(hidden_dim, se_hidden, 1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(se_hidden, hidden_dim, 1),
+            nn.Sigmoid()
+        )
+
+        self.project = nn.Conv2d(hidden_dim, out_ch, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_ch)
+        self.act = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        identity = x
+        if self.expand is not None:
+            x = self.act(self.bn0(self.expand(x)))
+
+        x = self.act(self.bn1(self.dwconv(x)))
+        x = x * self.se(x)  # channel attention
+        x = self.bn2(self.project(x))
+
+        if self.use_res_connect:
+            x = x + identity
+        return x
+    
+
+class EfficientNetLike(nn.Module):
+    def __init__(self, num_classes=1000):
+        super().__init__()
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, 32, 3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+        )
+
+        # (in_ch, out_ch, expand, stride, num_blocks)
+        settings = [
+            [32, 16, 1, 1, 1],
+            [16, 24, 6, 2, 2],
+            [24, 40, 6, 2, 2],
+            [40, 80, 6, 2, 3],
+            [80, 112, 6, 1, 3],
+            [112, 192, 6, 2, 4],
+            [192, 320, 6, 1, 1],
+        ]
+
+        blocks = []
+        for in_ch, out_ch, expand, stride, n in settings:
+            for i in range(n):
+                blocks.append(MBConv(
+                    in_ch if i == 0 else out_ch,
+                    out_ch,
+                    expand_ratio=expand,
+                    stride=stride if i == 0 else 1
+                ))
+        self.blocks = nn.Sequential(*blocks)
+
+        self.head = nn.Sequential(
+            nn.Conv2d(320, 640, 1, bias=False),
+            nn.BatchNorm2d(640),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(640, 1280),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(1280, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.blocks(x)
+        x = self.head(x)
+        return x
+    
+
+
 def unfreeze_last_layer(model):
     for name, param in model.named_parameters():
         if "layer4" in name or "fc" in name:
@@ -112,11 +205,12 @@ def training_loop(
         val_losses.append(val_loss)
         val_accs.append(val_acc)
         torch.save(model.state_dict(), save_path)
-        if epoch == 2:
-            unfreeze_last_layer(model)
-            optimizer = torch.optim.Adam(
-                filter(lambda p: p.requires_grad, model.parameters()), lr=1e-5, weight_decay=1e-5
-            )
+
+        # if epoch == 2:
+        #     unfreeze_last_layer(model)
+        #     optimizer = torch.optim.Adam(
+        #         filter(lambda p: p.requires_grad, model.parameters()), lr=1e-5, weight_decay=1e-5
+        #     )
         
     return model, train_losses, train_accs, val_losses, val_accs
 
