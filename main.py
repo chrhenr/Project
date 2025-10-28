@@ -101,7 +101,7 @@ class GeoGuesserHelper:
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    helper = GeoGuesserHelper(recompute=False, vm=True)
+    helper = GeoGuesserHelper(recompute=True, vm=True)
     plotter = MapPlotter(helper.df)
     helper.prepare_data()
 
