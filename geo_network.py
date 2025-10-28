@@ -109,8 +109,8 @@ class EfficientNetLike(nn.Module):
             [16, 24, 6, 2, 2],
             [24, 40, 6, 2, 2],
             [40, 80, 6, 2, 3],
-            [80, 112, 6, 1, 3],
-            [112, 192, 6, 2, 4],
+            [80, 112, 6, 1, 2],
+            [112, 192, 6, 2, 2],
             [192, 320, 6, 1, 1],
         ]
 
@@ -131,10 +131,7 @@ class EfficientNetLike(nn.Module):
             nn.ReLU(inplace=True),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(640, 1280),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Linear(1280, num_classes),
+            nn.Linear(640, num_classes),
         )
 
     def forward(self, x):
