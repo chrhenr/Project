@@ -27,7 +27,7 @@ CITIES_PATH = "./cities"
 STREETVIEW_PATH = "./streetview"
 MAPPED_PATH = "./data_mapped"
 EARTH_RADIUS_KM = 6371.0
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 LEARNING_RATE = 1e-3
 NUM_EPOCHS = 10
 
@@ -118,6 +118,8 @@ def main():
     # Train the model
 
     model = model_ResNet34(num_classes=1129)
+    model = EfficientNetLike(num_classes=1129)
+    model.load_state_dict(torch.load(helper.save_path, map_location=device))
     model.to(device)
 
     helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
