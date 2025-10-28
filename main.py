@@ -118,8 +118,6 @@ def main():
     # Train the model
 
     model = model_ResNet34(num_classes=1129)
-    model = EfficientNetLike(num_classes=1129)
-    model.load_state_dict(torch.load(helper.save_path, map_location=device))
     model.to(device)
 
     helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
