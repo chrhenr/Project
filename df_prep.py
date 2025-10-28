@@ -20,8 +20,12 @@ MAPPED_PATH = "./data_mapped"
 
 def load_data(streetview_path, cities_path, mapped_path, recompute: bool, vm: bool) -> pd.DataFrame:
     if vm:
-        with zipfile.ZipFile("streetview_jpg_(1).zip", 'r') as zip_ref:
-            zip_ref.extractall('.')
+        try:
+            df = pd.read_csv("data.csv")
+            return df.dropna(subset=["path"])
+        except Exception:
+            with zipfile.ZipFile("streetview_jpg_(1).zip", 'r') as zip_ref:
+                zip_ref.extractall('.')
     if recompute == False:
         df = pd.read_csv("data.csv")
         return df.dropna(subset=["path"])
