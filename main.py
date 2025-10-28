@@ -1,10 +1,14 @@
 
+from matplotlib import transforms
 from matplotlib.colors import Normalize
 
 from s2sphere import CellId, LatLng
+from torchvision import transforms as T
 import torch.nn as nn
 import torch
-
+import matplotlib.pyplot as plt
+from torchcam.methods import GradCAM, SmoothGradCAMpp
+from torchcam.utils import overlay_mask
 
 from torch.utils.data import DataLoader
 from torchvision.transforms import Normalize, ToTensor, Compose, Resize
@@ -13,8 +17,10 @@ from sklearn.model_selection import train_test_split
 
 from geoGuesserDataLoader import GeoGuesserDataset
 from df_prep import load_data
-from geo_network import training_loop, model_ResNet50, EfficientNetLike
+from geo_network import model_ResNet34, training_loop, model_ResNet50, EfficientNetLike
 from map_plot import MapPlotter
+
+from PIL import Image
 
 
 CITIES_PATH = "./cities"
@@ -105,14 +111,13 @@ def main():
     plotter = MapPlotter(helper.df)
     helper.prepare_data()
 
+    plotter.plot_datapoints()
     # Skapa dataloaders
     geo_dataloader_train, geo_dataloader_val = full_dataset(helper.df_img_and_labels)
 
     # Train the model
-    # model = model_ResNet50()
-    # model.to(device)
 
-    model = EfficientNetLike(num_classes=1129)
+    model = model_ResNet34(num_classes=1129)
     model.to(device)
 
     helper.train_model(model, geo_dataloader_train, geo_dataloader_val, helper.save_path)
@@ -121,10 +126,134 @@ def main():
     # model = model_ResNet50()
     # model.load_state_dict(torch.load(helper.save_path, map_location=torch.device('cpu')))
     # model.to(device)
+    # geo_dataloader_test = test_dataset(helper.df_img_and_labels)
 
-    geo_dataloader_test = test_dataset(helper.df_img_and_labels)
+    # visulize model resnet50
+    model = model_ResNet50()
+    model.to(device)
 
-    test(model, nn.CrossEntropyLoss(), geo_dataloader_val, device, helper)
+    save_path = "./geo_network_finalish.pth"
+    model.load_state_dict(torch.load(save_path, map_location=torch.device('cpu')))
+    model.to(device)
+
+    for name, layer in model.named_modules():
+        print(name, layer)
+
+    img = "C:\\Users\\chris\\Documents\\School\\DeepMachineLearning\\Project\\Img\\Screenshot 2025-10-23 160958.png"
+    visualize_conv_feats(model, img, num_filters=8)
+
+    visualize_cams(model, img, device, target_layer="layer4")
+
+
+    # visulize our model 
+    model = EfficientNetLike(num_classes=1129)
+    model.to(device)
+
+    save_path = "./geo_network_test.pth"
+    model.load_state_dict(torch.load(save_path, map_location=torch.device('cpu')))
+    model.to(device)
+
+    img = "C:\\Users\\chris\\Documents\\School\\DeepMachineLearning\\Project\\Img\\Screenshot 2025-10-23 160958.png"
+    visualize_conv_feats(model, img, num_filters=8)
+
+    visualize_cams(model, img, device, target_layer="layer4")
+
+    # test(model, nn.CrossEntropyLoss(), geo_dataloader_val, device, helper)
+
+
+def visualize_cams(model, img_path="screenshot.png", device=torch.device("cpu"), target_layer="layer2"):
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad = True
+
+    cam_extractor = GradCAM(model, target_layer=target_layer)
+
+    # --- Load and preprocess an image ---
+    transform = T.Compose([
+        T.Resize((224, 224)),
+        T.ToTensor(),
+    ])
+
+    img = Image.open(img_path).convert("RGB")
+    input_tensor = transform(img).unsqueeze(0)
+
+    # --- Forward pass ---
+    out = model(input_tensor)
+
+    # --- Choose the class index (e.g. predicted class) ---
+    class_idx = out.squeeze(0).argmax().item()
+
+    # --- Compute CAM ---
+    activation_map = cam_extractor(class_idx, out)
+    cam_tensor = activation_map[0].squeeze(0).cpu()
+
+    # --- Visualize ---
+    # Convert activation map to a PIL image
+    heatmap = activation_map[0].squeeze(0).cpu()
+    heatmap = T.ToPILImage()(heatmap.cpu())
+
+
+    print(heatmap.size)
+    print(img.size)
+
+    plt.imshow(heatmap)
+    plt.axis('off') 
+    plt.show()
+    result = overlay_mask(img, heatmap, alpha=0.5)
+
+    cam_extractor.remove_hooks()
+
+    plt.imshow(result)
+    plt.axis("off")
+    plt.show()
+
+
+def visualize_conv_feats(model, img_path="screenshot.png", num_filters=8):
+
+    # Pick some layers to hook into
+    # layers_to_hook = ["stem", "blocks.0", "blocks.3", "blocks.6", "head"]
+    layers_to_hook = ["conv1", "layer1", "layer2", "layer4"]
+    activations = {}
+
+    # Image preprocessing (match EfficientNet input)
+    transform = T.Compose([
+        T.Resize((224, 224)),
+        T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]),
+    ])
+
+    img = Image.open(img_path).convert("RGB")
+    x = transform(img).unsqueeze(0)  # (1, 3, 224, 224)
+
+    # Define hook function
+    def hook_fn(name):
+        def hook(module, input, output):
+            activations[name] = output.detach().cpu()
+        return hook
+
+    # Register hooks for chosen layers
+    for name, module in model.named_modules():
+        if name in layers_to_hook:
+            module.register_forward_hook(hook_fn(name))
+
+    # Run forward pass in eval mode
+    model.eval()
+    with torch.no_grad():
+        _ = model(x)
+
+    # Visualize a few feature maps per layer
+    for name, fmap in activations.items():
+        fmap = fmap[0]  # remove batch dim
+        n_channels = min(num_filters, fmap.size(0))
+
+        fig, axes = plt.subplots(1, n_channels, figsize=(15, 5))
+        for i in range(n_channels):
+            axes[i].imshow(fmap[i].numpy(), cmap="viridis")
+            axes[i].axis("off")
+        plt.suptitle(f"Feature maps from {name}")
+        plt.show()
+
 
 
 def test(model, loss_fn, test_loader, device, helper: GeoGuesserHelper):

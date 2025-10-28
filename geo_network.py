@@ -41,11 +41,15 @@ class Head(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(in_features, 1024),
-            nn.BatchNorm1d(1024),
+            nn.Linear(in_features, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
             nn.Dropout(0.3),
-            nn.Linear(1024, out_features)
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.3),
+            nn.Linear(256, out_features),
         )
 
     def forward(self, x):
@@ -56,55 +60,65 @@ class Head(nn.Module):
 class MBConv(nn.Module):
     def __init__(self, in_ch, out_ch, expand_ratio=6, se_ratio=0.25, stride=1):
         super().__init__()
-        hidden_dim = in_ch * expand_ratio
+        hidden_dim = int(in_ch * expand_ratio)
         self.use_res_connect = (stride == 1 and in_ch == out_ch)
 
-        self.expand = nn.Conv2d(in_ch, hidden_dim, 1, bias=False) if expand_ratio != 1 else None
-        self.bn0 = nn.BatchNorm2d(hidden_dim) if expand_ratio != 1 else None
+        layers = []
+        # Expansion phase
+        if expand_ratio != 1:
+            layers += [
+                nn.Conv2d(in_ch, hidden_dim, 1, bias=False),
+                nn.BatchNorm2d(hidden_dim),
+                nn.SiLU(inplace=True),  # Swish
+            ]
 
-        self.dwconv = nn.Conv2d(hidden_dim, hidden_dim, 3, stride=stride,
-                                padding=1, groups=hidden_dim, bias=False)
-        self.bn1 = nn.BatchNorm2d(hidden_dim)
+        # Depthwise convolution
+        layers += [
+            nn.Conv2d(hidden_dim, hidden_dim, 3, stride=stride, padding=1, groups=hidden_dim, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.SiLU(inplace=True),
+        ]
 
-        # --- Squeeze and Excitation ---
+        self.conv = nn.Sequential(*layers)
+
+        # Squeeze & Excitation
         se_hidden = max(1, int(in_ch * se_ratio))
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(hidden_dim, se_hidden, 1),
-            nn.ReLU(inplace=True),
+            nn.SiLU(inplace=True),
             nn.Conv2d(se_hidden, hidden_dim, 1),
             nn.Sigmoid()
         )
 
-        self.project = nn.Conv2d(hidden_dim, out_ch, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_ch)
-        self.act = nn.ReLU(inplace=True)
+        # Projection phase
+        self.project = nn.Sequential(
+            nn.Conv2d(hidden_dim, out_ch, 1, bias=False),
+            nn.BatchNorm2d(out_ch),
+        )
 
     def forward(self, x):
         identity = x
-        if self.expand is not None:
-            x = self.act(self.bn0(self.expand(x)))
-
-        x = self.act(self.bn1(self.dwconv(x)))
-        x = x * self.se(x)  # channel attention
-        x = self.bn2(self.project(x))
-
+        x = self.conv(x)
+        x = x * self.se(x)
+        x = self.project(x)
         if self.use_res_connect:
             x = x + identity
         return x
+
     
 
 class EfficientNetLike(nn.Module):
-    def __init__(self, num_classes=1000):
+    def __init__(self, num_classes=1129):
         super().__init__()
         self.stem = nn.Sequential(
             nn.Conv2d(3, 32, 3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
+            nn.SiLU(inplace=True),
         )
 
-        # (in_ch, out_ch, expand, stride, num_blocks)
         settings = [
+            # in_ch, out_ch, expand, stride, num_blocks
             [32, 16, 1, 1, 1],
             [16, 24, 6, 2, 2],
             [24, 40, 6, 2, 2],
@@ -123,15 +137,17 @@ class EfficientNetLike(nn.Module):
                     expand_ratio=expand,
                     stride=stride if i == 0 else 1
                 ))
+            in_ch = out_ch  # update for next stage!
+
         self.blocks = nn.Sequential(*blocks)
 
         self.head = nn.Sequential(
-            nn.Conv2d(320, 640, 1, bias=False),
-            nn.BatchNorm2d(640),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(320, 1280, 1, bias=False),
+            nn.BatchNorm2d(1280),
+            nn.SiLU(inplace=True),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(640, num_classes),
+            nn.Linear(1280, num_classes)
         )
 
     def forward(self, x):
@@ -146,6 +162,14 @@ def unfreeze_last_layer(model):
     for name, param in model.named_parameters():
         if "layer4" in name or "fc" in name:
             param.requires_grad = True
+
+def model_ResNet34(num_classes=1129):
+    """Load Resnet34 without pretrained weights and replace the FC layer with a custom head."""
+    model = models.resnet34(weights=None)
+    num_ftrs = model.fc.in_features
+    model.fc = Head(num_ftrs, num_classes)
+    return model
+
 
 def model_ResNet50(num_classes=1129):
     # Load base ResNet50 (no pretrained weights yet)

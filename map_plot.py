@@ -56,6 +56,23 @@ class MapPlotter:
         plt.show()
         return "Plotting complete."
 
+    def plot_datapoints(self):
+        plt.figure(figsize=(14, 7))
+
+        # Sample points for plotting
+        N_SAMPLE = min(len(self.df), 50000)
+        sample = self.df.sample(N_SAMPLE, random_state=0) if len(self.df) > N_SAMPLE else self.df
+        plt.scatter(sample["lon"], sample["lat"], s=1, alpha=0.7)
+
+        plt.xlim(-180, 180)
+        plt.ylim(-90, 90)
+        plt.xlabel("Longitude")
+        plt.ylabel("Latitude")
+        plt.title(f"Data Points Distribution")
+
+        plt.tight_layout()
+        plt.show()
+        return "Plotting complete."
 
     def plot_s2_grid_with_background(self, probabilities=None):
         # Load background image
